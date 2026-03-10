@@ -14,9 +14,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../context/NotificationContext";
 import { CATEGORIES, type Category, type Subcategory } from "../../constants/categories";
 import { useTheme } from "../../constants/theme";
 import { api } from "../../services/api";
+import NotificationDrawer from "../../components/NotificationDrawer";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -53,24 +55,19 @@ const STATUS_LABEL: Record<string, string> = {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const theme = useTheme();
+  const theme  = useTheme();
   const router = useRouter();
   const { user } = useAuth();
+  const { unreadCount } = useNotifications();
 
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
-  const [sheetVisible, setSheetVisible] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [recentCases, setRecentCases] = useState<Complaint[]>([]);
+  const [sheetVisible, setSheetVisible]     = useState(false);
+  const [drawerVisible, setDrawerVisible]   = useState(false);
+  const [recentCases, setRecentCases]       = useState<Complaint[]>([]);
   const sheetAnim = useRef(new Animated.Value(0)).current;
 
-  // Load notifications badge + recent cases
+  // Load recent cases on mount
   useEffect(() => {
-    (async () => {
-      try {
-        const notes = await api.authedGet<any[]>("/notifications/mine");
-        setUnreadCount(notes.length);
-      } catch {}
-    })();
     (async () => {
       try {
         const data = await api.authedGet<Complaint[]>("/complaints/");
@@ -117,7 +114,7 @@ export default function HomeScreen() {
           <Text style={[s.logo, { color: theme.primary }]}>CivicFlow</Text>
           <TouchableOpacity
             style={[s.bellWrap, { backgroundColor: theme.surface, borderColor: theme.border }]}
-            onPress={() => {}}
+            onPress={() => setDrawerVisible(true)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={s.bellIcon}>🔔</Text>
@@ -214,6 +211,12 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* ── Notification Drawer ────────────────────────────────────────── */}
+      <NotificationDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+      />
 
       {/* ── Subcategory Bottom Sheet ────────────────────────────────────── */}
       {sheetVisible && (

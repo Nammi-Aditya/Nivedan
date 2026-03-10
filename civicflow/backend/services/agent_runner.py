@@ -207,18 +207,23 @@ Next task: {next_field}
 - When ALL fields done: ACTION: fill_form
 
 ### PREVIEW — filled PDF shown, awaiting confirmation
-- User says yes/confirm/submit: ACTION: submit
-- User wants changes: ACTION: collect_fields
+- User says yes/confirm/submit/approve: ACTION: submit
+- User mentions a correction or change:
+  * First extract the corrected value from their message via EXTRACTED (e.g. EXTRACTED: {{"employer_address": "123 MG Road"}})
+  * Then ACTION: collect_fields
+  * Acknowledge what you understood: "Got it, I'll update [field]."
 
-## Output format (end EVERY reply with exactly these two lines):
+## Output format (end EVERY reply with exactly these two lines — they are HIDDEN from the user):
 EXTRACTED: {{"field_key": "value"}}
 ACTION: none|fetch_form|collect_fields|fill_form|submit
 
 ## Rules:
 - **ONE question per reply. Never ask two things at once. Period.**
 - 1 warm acknowledgement + 1 question only
-- Never show EXTRACTED or ACTION text to the user
-- Do NOT list what you need. Ask for ONE thing, wait, then ask the next."""
+- NEVER include "EXTRACTED:" or "ACTION:" text in your visible reply. They are metadata only, stripped before display.
+- When you learn a value, confirm it naturally in your reply (e.g. "Got it, ₹20,000 pending.")
+- Do NOT list all fields you need. Ask for ONE thing, wait, then ask the next.
+- When ACTION: fill_form — do NOT write a summary yourself; the system generates it automatically."""
 
 
 def _strip_think(text: str) -> str:
@@ -256,10 +261,33 @@ def _parse_tail(llm_text: str) -> tuple[dict, str]:
     if m2:
         action = m2.group(1).lower().strip()
 
-    # Clean reply — remove EXTRACTED/ACTION lines
-    clean = re.sub(r'\nEXTRACTED:.*', '', text, flags=re.DOTALL)
-    clean = re.sub(r'\nACTION:.*', '', clean, flags=re.DOTALL).strip()
+    # Clean reply — strip EXTRACTED/ACTION blocks wherever they appear
+    # \n? makes the leading newline optional (LLM sometimes omits it)
+    clean = re.sub(r'\n?EXTRACTED:\s*\{[^}]*\}', '', text, flags=re.DOTALL)
+    clean = re.sub(r'\n?ACTION:\s*\w+[^\n]*', '', clean).strip()
     return extracted, action, clean
+
+
+def _build_summary(form_data: dict, cfg: dict) -> str:
+    """Build a human-readable summary of all collected fields."""
+    lines = ["Here is everything I have collected for your complaint:\n"]
+    for key, label in cfg["fields"]:
+        value = form_data.get(key)
+        if value:
+            # Make the label title-case and clean it up
+            display_label = (
+                label.replace("your ", "")
+                     .replace("the ", "")
+                     .strip()
+                     .title()
+            )
+            lines.append(f"  \u2022 {display_label}: {value}")
+    lines.append(
+        "\nPlease review the above details carefully.\n"
+        "If everything looks correct, say \u2018Yes, generate my complaint form\u2019.\n"
+        "If anything is wrong, just tell me what needs to be changed."
+    )
+    return "\n".join(lines)
 
 
 def _fetch_blank_form_b64(cfg: dict) -> str | None:
@@ -354,6 +382,71 @@ def run_agent(complaint_id: str, user_message: str, user: dict) -> dict:
             "thinking_steps": ["👋 Starting session...", f"🌐 Language: {language}"],
         }
 
+    # ── REJECTED: auto-correct and regenerate PDF ─────────────────────────────
+    if state == "REJECTED":
+        rejection_reason = complaint.get("rejection_reason", "No reason provided.")
+        thinking_steps = [
+            "🔄 Analysing rejection...",
+            "✏ Preparing correction...",
+        ]
+
+        # Ask LLM to identify corrections
+        correction_prompt = (
+            f'The complaint form was rejected. Reason: "{rejection_reason}"\n\n'
+            f"Current form data:\n{json.dumps(form_data, indent=2)}\n\n"
+            "Based on the rejection reason, identify which field(s) need correction "
+            "and provide corrected values. Respond ONLY with a JSON object like "
+            '{"field_key": "corrected_value"}. If nothing specific can be identified, '
+            'respond with {}.'
+        )
+        try:
+            correction_raw = chat_completion(
+                [{"role": "user", "content": correction_prompt}],
+                system_prompt="You are a form correction assistant. Respond only with a JSON object.",
+            )
+            m = re.search(r'\{[^}]*\}', correction_raw, re.DOTALL)
+            if m:
+                corrections = json.loads(m.group())
+                valid_keys = {f[0] for f in cfg["fields"]}
+                for k, v in corrections.items():
+                    if k in valid_keys and v:
+                        form_data[k] = str(v)
+                        thinking_steps.append(f"✏ Corrected: {k.replace('_', ' ')} → {v}")
+        except Exception:
+            thinking_steps.append("⚠ Auto-correction skipped — regenerating with existing data...")
+
+        # Generate corrected PDF
+        try:
+            pdf_data = {**form_data, "declaration_date": datetime.now(timezone.utc).strftime("%Y-%m-%d")}
+            pdf_base64 = generate_pdf_b64(cfg["form_name"], pdf_data)
+            thinking_steps.append("🖨️ Corrected PDF ready")
+            db.complaints.update_one(
+                {"_id": cid},
+                {"$set": {
+                    "form_data":      form_data,
+                    "agent_state":    "PREVIEW",
+                    "status":         "pending",
+                    "updated_at":     datetime.now(timezone.utc),
+                },
+                "$inc": {"resubmission_count": 1}},
+            )
+            return {
+                "reply": (
+                    f"Your complaint was rejected. Reason: {rejection_reason}\n\n"
+                    "I've automatically corrected the form. Here is the corrected complaint form. "
+                    "Please review and approve to resubmit."
+                ),
+                "action": "show_pdf",
+                "action_data": {
+                    "filename":   f"Corrected_{cfg['title'].replace(' ', '_')}_Complaint.pdf",
+                    "pdf_base64": pdf_base64,
+                    "label":      "filled_form",
+                },
+                "thinking_steps": thinking_steps,
+            }
+        except Exception as e:
+            return _err(f"Could not regenerate form: {e}")
+
     # ── SUBMITTED: nothing more to do ─────────────────────────────────────────
     if state == "SUBMITTED":
         return {
@@ -394,10 +487,31 @@ def run_agent(complaint_id: str, user_message: str, user: dict) -> dict:
             form_data[key] = str(val)
             thinking_steps.append(f"📝 Noted: {key.replace('_', ' ')} = {val}")
 
+    # ── Fallback: LLM returned only EXTRACTED/ACTION with no visible text ─────
+    # This happens when Sarvam emits metadata lines without a conversational reply.
+    # Generate a natural acknowledgement so the user always sees a response.
+    if not reply_text and llm_action in ("none", "collect_fields", ""):
+        missing = _missing(form_data, cfg["fields"])
+        if missing:
+            next_label = missing[0][1]
+            # Build a warm acknowledgement that names what was just collected
+            noted = [v for k, v in extracted.items() if k in valid_keys and v]
+            ack   = f"Got it{', ' + noted[0] if noted else ''}! " if extracted else ""
+            reply_text = f"{ack}Could you please tell me {next_label}?"
+        else:
+            reply_text = "Got it! Let me now prepare your complaint form."
+            llm_action = "fill_form"   # all fields present — trigger PDF generation
+
     # ── Execute actions ───────────────────────────────────────────────────────
     action      = None
     action_data = None
     next_state  = state
+
+    # If user provided a corrected value inline during PREVIEW/COLLECT_FIELDS,
+    # the field is already updated in form_data. If nothing is missing anymore,
+    # skip straight to PDF regeneration instead of waiting for another message.
+    if llm_action == "collect_fields" and not _missing(form_data, cfg["fields"]):
+        llm_action = "fill_form"
 
     if llm_action == "fetch_form":
         thinking_steps += [f"📋 Fetching blank {cfg['title']} form...", "📄 Form ready for review"]
@@ -422,7 +536,7 @@ def run_agent(complaint_id: str, user_message: str, user: dict) -> dict:
             next_state = "COLLECT_FIELDS"
             thinking_steps.append(f"⚠️ Still need: {missing[0][0]}")
         else:
-            thinking_steps += ["✍️ Filling all complaint fields...", "🖨️ Generating PDF document...", "✅ PDF ready!"]
+            thinking_steps += ["✍️ All fields collected", "🖨️ Generating PDF document...", "✅ PDF ready!"]
             try:
                 pdf_data   = {**form_data, "declaration_date": datetime.now(timezone.utc).strftime("%Y-%m-%d")}
                 pdf_base64 = generate_pdf_b64(cfg["form_name"], pdf_data)
@@ -433,8 +547,8 @@ def run_agent(complaint_id: str, user_message: str, user: dict) -> dict:
                     "label":      "filled_form",
                 }
                 next_state = "PREVIEW"
-                if not reply_text:
-                    reply_text = f"Your {cfg['title']} complaint form is ready! Please review the PDF. If everything looks correct, say 'Yes, submit it.'"
+                # Always show a detailed summary + the PDF card together
+                reply_text = _build_summary(form_data, cfg)
             except Exception as e:
                 reply_text = f"Error generating form: {e}"
 

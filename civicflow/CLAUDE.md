@@ -174,13 +174,13 @@ services/agent_runner.py    Phase 6 AI agent state machine
 
 services/form_handler.py    FIELD_DEFINITIONS for old agent chat (Phase 1b)
                             get_fields, next_missing_field, build_summary, submit_to_portal
-services/pdf_generator.py   generate_salary_complaint_pdf(data) → bytes (old flow)
-                            generate_salary_non_payment_pdf(data) → bytes  ← used by Phase 6
-                              Fields: complainant_name, employer_name, employer_address,
-                                employment_start_date, last_paid_date, months_pending,
-                                amount_pending, attempts_made, declaration_date
-                            generate_pdf_b64(form_name, data) → base64 str
-                            generate_pdf(category, subcategory, data) → bytes
+services/pdf_generator.py   generate_salary_complaint(data) → base64 str  ← Phase 7 (professional form)
+                              Header: logo placeholder, centred title/subtitle, ref+date top-right
+                              6 sections: Complainant, Employer, Employment, Steps (checkboxes),
+                              Documents (checkboxes), Declaration + signature line
+                            generate_salary_non_payment_pdf(data) → bytes  (Phase 3, kept for ref)
+                            generate_pdf_b64(form_name, data) → base64 str  ← routes salary to new fn
+                            generate_pdf(category, subcategory, data) → bytes (generic fallback)
 
 pyproject.toml              uv deps: flask, flask-cors, pymongo, pyjwt, fpdf2,
                             python-dotenv, requests, bcrypt, sarvamai
@@ -240,6 +240,17 @@ components/PdfViewer.tsx    Full screen Modal. Web: iframe with data URI. Native
 constants/agentSteps.ts     AGENT_STEPS array (used as ThinkingStrip fallback)
 constants/categories.ts     CATEGORIES with findSubcategory(subcategoryId) helper
 constants/theme.ts          darkTheme, lightTheme, useTheme() hook
+
+app/pdf-viewer.tsx          Phase 7 full-screen PDF viewer route (native only)
+                            Reads from utils/pdfStore.ts, writes base64→temp file via expo-file-system
+                            Renders with react-native-pdf (requires dev build)
+                            Header: "<category> Complaint Form" + close button
+                            Bottom bar: [✏ Request Changes] [✓ Approve & Submit (green)]
+                            Approve → calls pdfStore.onApprove() → router.back()
+                            Request Changes → text input → pdfStore.onRequestChanges(text) → back
+
+utils/pdfStore.ts           Module-level store for PDF data + callbacks between screens
+                            setPdfViewerData / getPdfViewerData / clearPdfViewerData
 
 context/AuthContext.tsx     AuthProvider, useAuth() — login/register/logout + session restore
 services/api.ts             api.get/post/authedGet/authedPost/authedPatch
@@ -518,14 +529,51 @@ Messages format: `[{"role": "system"|"user"|"assistant", "content": "..."}]`
 - [x] **Phase 4** — Mobile app: home screen, category grid, bottom sheet, chat UI, ThinkingStrip, PdfCard, PdfViewer
 - [x] **Phase 5** — Web dashboard: Login, Layout shell, Dashboard, CaseDetail, Notifications page
 - [x] **Phase 6** — AI Agent: Sarvam integration, goal-oriented flow, language support, Claude-like thinking UI
-- [ ] **Phase 7** — PDF Form Fill + In-App Viewer (native react-native-pdf, requires dev build)
-- [ ] **Phase 8** — Notifications Loop (polling / WebSocket)
+- [x] **Phase 7** — PDF Form Fill + In-App Viewer (native react-native-pdf, requires dev build)
+- [x] **Phase 8** — Notifications Loop (Expo push + polling fallback + in-app banner + drawer)
 - [ ] **Phase 9** — Polish — Multilingual UI labels, final animations
 - [ ] **Phase 10** — Demo Prep + Final Wiring
 
-### Next task: Phase 7
-Native PDF rendering in PdfViewer (currently placeholder on native).
-Need `expo-dev-client` build + `react-native-pdf` library.
+### Next task: Phase 9
+Polish — multilingual UI labels, final animations.
+
+### Phase 8 notes
+- Push via Expo Push API from backend (webhooks.py `_send_expo_push` with `data` dict)
+- `data` payload: `{ type, complaint_id, status, next_step_label, reason }`
+- `sound: "default"` added so device plays sound on notification
+- Backend: `GET /notifications/mine?all=1` returns all (read+unread); default still unread only
+- Backend: `POST /notifications/read/all` marks all notifications read
+- Mobile services: `mobile/services/notifications.ts`
+  - `registerForPushNotifications()` — permissions + token + POST /users/push_token
+  - `addForegroundListener(cb)` — fires when push arrives while app is open
+  - `addResponseListener(cb)` — fires when user taps background push
+  - `Notifications.setNotificationHandler` set so banner is suppressed (we show InAppBanner)
+- Mobile context: `mobile/context/NotificationContext.tsx`
+  - `useNotifications()` — provides `notifications`, `unreadCount`, `refreshNotifications`, `markRead`, `markAllRead`
+  - Polls `/notifications/mine?all=1` every 30s
+- `mobile/components/InAppBanner.tsx` — slides down from top, 4s auto-dismiss, spring animation
+- `mobile/components/NotificationDrawer.tsx` — right-side drawer, unread highlighted, time-ago, typeIcon
+- `mobile/app/_layout.tsx` — wraps with `NotificationProvider`, handles push setup + foreground banner
+- `mobile/app/(tabs)/index.tsx` — bell now opens `NotificationDrawer`, badge from context
+- `mobile/app/chat/[category].tsx`:
+  - Polling fallback every 10s via `GET /complaints/<id>` — inserts status_update card on change
+  - Calls `refreshNotifications()` when status_update received from agent or polling
+
+### Phase 7 notes
+- PDF viewer screen: `mobile/app/pdf-viewer.tsx` (expo-file-system + react-native-pdf)
+  - Reads PDF data from `mobile/utils/pdfStore.ts` (module-level store, no URL-param size limits)
+  - Requires dev build (`npx expo run:android` or `npx expo run:ios`)
+  - Graceful fallback if react-native-pdf not available
+- Resubmission flow:
+  - Webhook sets `agent_state = "REJECTED"` + `rejection_reason` when portal returns FAIL
+  - Chat screen polls GET /complaints/<id> every 8s when stage="submitted"
+  - On detecting REJECTED, sends empty message to agent
+  - Agent (REJECTED state) calls LLM to auto-correct form_data, regenerates PDF, shows new PdfCard
+  - User approves → resubmit (same portal endpoint, resubmission_count incremented)
+- `generate_salary_complaint(form_data) -> str (base64)` — new professional A4 form
+  - Header: logo placeholder, centred title/subtitle, ref no + date top-right
+  - 6 sections: Complainant, Employer, Employment, Steps Taken (checkboxes), Documents (checkboxes), Declaration
+  - Now used by `generate_pdf_b64()` for all salary forms
 
 ---
 

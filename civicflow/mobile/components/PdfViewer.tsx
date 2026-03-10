@@ -1,8 +1,7 @@
 /**
  * PdfViewer — full-screen modal PDF viewer.
  *
- * Note: Native PDF rendering requires react-native-pdf (dev build only).
- * In Expo Go a placeholder is shown. Full integration is Phase 7.
+ * On web: iframe data URI. On native: navigate to /pdf-viewer route (react-native-webview).
  */
 import React from "react";
 import {
@@ -55,13 +54,13 @@ export default function PdfViewer({
             // Web: render using an iframe via react-native-web
             <PdfWebView pdfBase64={pdfBase64} />
           ) : (
-            // Native: placeholder (react-native-pdf goes here in Phase 7 dev build)
+            // Native: tap to open full-screen pdf-viewer route (Phase 7)
             <View style={s.placeholder}>
               <Text style={s.placeholderIcon}>📄</Text>
               <Text style={[s.placeholderTitle, { color: theme.text }]}>{filename}</Text>
               <Text style={[s.placeholderSub, { color: theme.subtext }]}>
-                PDF preview requires a development build.{"\n"}
-                Review the form details and approve below.
+                Close this modal to view the PDF in full screen.{"\n"}
+                Use "Approve & Submit" below to proceed.
               </Text>
             </View>
           )}

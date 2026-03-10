@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -18,6 +19,8 @@ import { useTheme } from "../../constants/theme";
 import ThinkingStrip from "../../components/ThinkingStrip";
 import PdfCard from "../../components/PdfCard";
 import PdfViewer from "../../components/PdfViewer";
+import { setPdfViewerData } from "../../utils/pdfStore";
+import { useNotifications } from "../../context/NotificationContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,6 +40,7 @@ export default function ChatScreen() {
   const router   = useRouter();
   const theme    = useTheme();
   const insets   = useSafeAreaInsets();
+  const { refreshNotifications } = useNotifications();
 
   const resolved       = paramId ? findSubcategory(paramId) : null;
   const parentCategory = resolved?.category ?? null;
@@ -51,11 +55,15 @@ export default function ChatScreen() {
   const [pdfViewer, setPdfViewer]             = useState<{
     visible: boolean; filename: string; base64?: string;
   }>({ visible: false, filename: "" });
-  const listRef = useRef<FlatList>(null);
+  const listRef       = useRef<FlatList>(null);
+  // Always-current ref to handleSend — avoids stale closure in pdfStore callbacks
+  const handleSendRef = useRef<((overrideText?: string) => Promise<void>) | undefined>(undefined);
+  // Track last known complaint status for polling fallback
+  const lastStatusRef = useRef<string | null>(null);
 
   const pushMsg = useCallback((msg: Message) => {
     setMessages((prev) => [...prev, msg]);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    // onContentSizeChange on FlatList handles scroll-to-end automatically
   }, []);
 
   // ── Apply agent response to UI ────────────────────────────────────────────
@@ -84,6 +92,8 @@ export default function ChatScreen() {
       case "status_update": {
         const ref = res.action_data?.portal_ref_id ?? "";
         pushMsg({ id: uid(), type: "status_update", status: "filed", label: `Ref: ${ref}` });
+        lastStatusRef.current = "filed";
+        refreshNotifications();
         setStage("submitted");
         break;
       }
@@ -110,6 +120,7 @@ export default function ChatScreen() {
 
         const cid = doc._id;
         setComplaintId(cid);
+        lastStatusRef.current = "pending"; // initial status
 
         // Get greeting from agent (empty message = agent starts)
         const greet = await sendAgentMessage(cid, "");
@@ -136,6 +147,7 @@ export default function ChatScreen() {
     const text = (overrideText ?? input).trim();
     if (!text || !complaintId || stage === "loading" || stage === "submitted") return;
 
+    Keyboard.dismiss();           // snap input bar back to bottom
     pushMsg({ id: uid(), type: "user", text });
     setInput("");
     setThinkingSteps(undefined); // clear previous steps
@@ -152,6 +164,67 @@ export default function ChatScreen() {
       setThinking(false);
     }
   };
+
+  // Update ref on every render so pdfStore callbacks always invoke the latest closure
+  handleSendRef.current = handleSend;
+
+  // ── Poll for rejection when stage = "submitted" ──────────────────────────
+  useEffect(() => {
+    if (stage !== "submitted" || !complaintId) return;
+    const interval = setInterval(async () => {
+      try {
+        const c = await api.authedGet<{ status: string; agent_state: string }>(
+          `/complaints/${complaintId}`
+        );
+        if (c.status === "failed" || c.agent_state === "REJECTED") {
+          clearInterval(interval);
+          setStage("chatting");
+          setThinkingSteps(undefined);
+          setThinking(true);
+          try {
+            const res = await sendAgentMessage(complaintId, "");
+            applyResponse(res);
+          } finally {
+            setThinking(false);
+          }
+        }
+      } catch {}
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [stage, complaintId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Polling fallback: every 10s check for status changes ─────────────────
+  // Covers cases where push notification doesn't arrive in demo environment.
+  useEffect(() => {
+    if (!complaintId || stage === "loading") return;
+    const interval = setInterval(async () => {
+      try {
+        const c = await api.authedGet<{ status: string; current_step_label: string }>(
+          `/complaints/${complaintId}`
+        );
+        const prevStatus = lastStatusRef.current;
+        if (prevStatus !== null && prevStatus !== c.status) {
+          // Status changed — insert a status_update card if not already shown
+          const label = c.current_step_label || c.status;
+          pushMsg({ id: uid(), type: "status_update", status: c.status, label });
+          refreshNotifications();
+        }
+        lastStatusRef.current = c.status;
+      } catch {}
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [complaintId, stage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Scroll chat to end when keyboard opens or resizes ────────────────────
+  useEffect(() => {
+    // keyboardDidShow: fires after keyboard is fully visible
+    const show = Keyboard.addListener("keyboardDidShow", () => {
+      // Two passes: first at 150ms (layout resized), second at 400ms (safe fallback)
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 150);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }),  400);
+    });
+    return () => show.remove();
+  }, []);
 
   // ── Guard ─────────────────────────────────────────────────────────────────
 
@@ -205,11 +278,31 @@ export default function ChatScreen() {
           contentContainerStyle={s.messageList}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() =>
+            listRef.current?.scrollToEnd({ animated: true })
+          }
+          onLayout={() =>
+            listRef.current?.scrollToEnd({ animated: false })
+          }
           renderItem={({ item }) => (
             <MessageRow
               msg={item}
               theme={theme}
-              onViewPdf={(filename, base64) => setPdfViewer({ visible: true, filename, base64 })}
+              onViewPdf={(filename, base64) => {
+                if (Platform.OS === "web") {
+                  setPdfViewer({ visible: true, filename, base64 });
+                } else {
+                  // Native: store data and navigate to full-screen route
+                  setPdfViewerData({
+                    pdfBase64: base64 ?? "",
+                    filename,
+                    category: subcategory?.label ?? parentCategory?.label ?? "Complaint",
+                    onApprove: () => handleSendRef.current?.("yes, submit it"),
+                    onRequestChanges: (text: string) => handleSendRef.current?.(text),
+                  });
+                  router.push("/pdf-viewer");
+                }
+              }}
               onActionBtn={(btn) => handleSend(btn)}
             />
           )}
@@ -234,38 +327,36 @@ export default function ChatScreen() {
                 },
               ]}
             >
-              {stage === "confirming" ? (
-                <Text style={[s.confirmHint, { color: theme.subtext }]}>
-                  Use the buttons above to respond
-                </Text>
-              ) : (
-                <View style={s.inputRow}>
-                  <TextInput
-                    style={[
-                      s.textInput,
-                      { backgroundColor: theme.background, color: theme.text, borderColor: theme.border },
-                    ]}
-                    value={input}
-                    onChangeText={setInput}
-                    placeholder="Type your message..."
-                    placeholderTextColor={theme.subtext}
-                    onSubmitEditing={() => handleSend()}
-                    returnKeyType="send"
-                    editable={!thinking && stage === "chatting"}
-                    multiline
-                  />
-                  <TouchableOpacity
-                    style={[
-                      s.sendBtn,
-                      { backgroundColor: theme.primary, opacity: thinking || !input.trim() ? 0.45 : 1 },
-                    ]}
-                    onPress={() => handleSend()}
-                    disabled={thinking || !input.trim()}
-                  >
-                    <Text style={s.sendIcon}>↑</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+              <View style={s.inputRow}>
+                <TextInput
+                  style={[
+                    s.textInput,
+                    { backgroundColor: theme.background, color: theme.text, borderColor: theme.border },
+                  ]}
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder={
+                    stage === "confirming"
+                      ? "Or type your reply here…"
+                      : "Type your message..."
+                  }
+                  placeholderTextColor={theme.subtext}
+                  onSubmitEditing={() => handleSend()}
+                  returnKeyType="send"
+                  editable={!thinking && stage !== "loading"}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[
+                    s.sendBtn,
+                    { backgroundColor: theme.primary, opacity: thinking || !input.trim() ? 0.45 : 1 },
+                  ]}
+                  onPress={() => handleSend()}
+                  disabled={thinking || !input.trim()}
+                >
+                  <Text style={s.sendIcon}>↑</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -485,26 +576,28 @@ const s = StyleSheet.create({
   pdfCard: {
     borderRadius: 14,
     borderWidth: 1,
-    padding: 12,
-    gap: 10,
-    maxWidth: "84%",
+    padding: 14,
+    gap: 8,
+    width: "92%",
   },
   pdfCardTop:  { flexDirection: "row", alignItems: "center", gap: 10 },
   pdfIcon:     { fontSize: 28 },
   pdfName:     { fontSize: 13, fontWeight: "700" },
   pdfSub:      { fontSize: 11, marginTop: 1 },
-  pdfBtnRow:   { flexDirection: "row", gap: 8 },
+  pdfBtnRow:   { flexDirection: "row", gap: 8, marginTop: 4 },
   pdfBtn: {
     flex: 1,
     borderRadius: 10,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
   },
-  pdfBtnText: { fontSize: 13, fontWeight: "700" },
+  pdfBtnText: { fontSize: 14, fontWeight: "700" },
 
   // Input bar
   inputBar:    { borderTopWidth: 1, paddingHorizontal: 12, paddingTop: 10 },
-  confirmHint: { textAlign: "center", fontSize: 13, paddingVertical: 8 },
   inputRow:    { flexDirection: "row", gap: 8, alignItems: "flex-end" },
   textInput: {
     flex: 1,

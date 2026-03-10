@@ -13,12 +13,12 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _send_expo_push(token: str, title: str, body: str) -> None:
+def _send_expo_push(token: str, title: str, body: str, data: dict | None = None) -> None:
     """Fire-and-forget Expo push notification."""
     try:
         requests.post(
             "https://exp.host/--/api/v2/push/send",
-            json={"to": token, "title": title, "body": body},
+            json={"to": token, "title": title, "body": body, "data": data or {}, "sound": "default"},
             timeout=5,
         )
     except Exception:
@@ -72,8 +72,10 @@ def portal_webhook():
     }
     if portal_ref_id:
         update["$set"]["portal_ref_id"] = portal_ref_id
-    if new_status == "failed" and reason:
-        update["$set"]["rejection_reason"] = reason
+    if new_status == "failed":
+        update["$set"]["agent_state"] = "REJECTED"
+        if reason:
+            update["$set"]["rejection_reason"] = reason
 
     db.complaints.update_one({"_id": oid}, update)
 
@@ -101,6 +103,13 @@ def portal_webhook():
             token=push_token,
             title="CivicFlow Update",
             body=message,
+            data={
+                "type": "status_update",
+                "complaint_id": complaint_id,
+                "status": new_status,
+                "next_step_label": next_step_label,
+                "reason": reason,
+            },
         )
 
     return jsonify({"ok": True, "complaint_id": complaint_id, "status": new_status}), 200

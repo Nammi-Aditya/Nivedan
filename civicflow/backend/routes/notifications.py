@@ -30,17 +30,28 @@ def _serialize(doc: dict) -> dict:
 @notifications_bp.route("/mine", methods=["GET"])
 @jwt_required
 def list_notifications():
-    notes = list(
-        db.notifications
-        .find({"user_id": g.user["_id"], "read": False})
-        .sort("created_at", -1)
-    )
+    # ?all=1 returns all (read + unread); default returns only unread
+    include_all = request.args.get("all", "0") == "1"
+    query: dict = {"user_id": g.user["_id"]}
+    if not include_all:
+        query["read"] = False
+    notes = list(db.notifications.find(query).sort("created_at", -1).limit(50))
     return jsonify([_serialize(n) for n in notes]), 200
 
 
 # ---------------------------------------------------------------------------
 # POST /notifications/read/<id>  — mark notification as read
 # ---------------------------------------------------------------------------
+
+@notifications_bp.route("/read/all", methods=["POST"])
+@jwt_required
+def mark_all_read():
+    db.notifications.update_many(
+        {"user_id": g.user["_id"], "read": False},
+        {"$set": {"read": True}},
+    )
+    return jsonify({"ok": True}), 200
+
 
 @notifications_bp.route("/read/<notification_id>", methods=["POST"])
 @jwt_required
