@@ -64,7 +64,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     if (finalStatus !== "granted") return null;
 
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
+    const tokenData = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined
+    );
     const token = tokenData.data;
 
     // Fire-and-forget — don't block app startup
