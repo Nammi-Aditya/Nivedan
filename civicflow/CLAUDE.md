@@ -288,12 +288,79 @@ utils/storage.ts            Platform-aware: web→localStorage, native→expo-se
 ```
 src/main.tsx                Entry — ThemeProvider > AuthProvider > BrowserRouter > Routes
                             PrivateRoute guard wraps /dashboard, /cases/:id, /notifications
-                            Routes: / → /login, /login, /register, /dashboard, /cases/:id, /notifications
+                            Routes: / → Landing, /home-old → Home (old), /login, /register,
+                                    /dashboard, /cases/:id, /notifications
 
 src/context/AuthContext.tsx In-memory token (NOT localStorage) — _token in api.ts module
 src/context/ThemeContext.tsx dark: boolean (default true) — applies 'dark' class to <html>
 
 src/services/api.ts         In-memory _token, auto Authorization header (getToken() removed — dead)
+src/pages/Landing.tsx       PUBLIC marketing landing page (route: /)
+                            Architecture: fixed 3D canvas (z:1) + fixed content overlay (z:5)
+                              + scroll dots (z:50) + 700vh window-scroll spacer + CTA + Footer
+                            Window scroll drives section (0–6); native scrollbar works correctly.
+                            TOTAL_SECTIONS=7 (hero + 6 feature sections)
+                            Content fade: fadeOpacity 0→1 with 260ms cross-fade on section change
+                            Text panel alternates left/right opposite the phone position
+                            Color theme: 60% white / 30% navy (#1B2A4A) / 10% saffron (#E8891A)
+                            Font: Google Sans Flex (variable, loaded via Google Fonts CDN)
+                              + JetBrains Mono for section number labels
+                            Icons: react-icons (FiXxx from feather, LuXxx from lucide, IoLogoXxx)
+                              — NO emojis anywhere on the page
+                            Logo: src/assets/LOGO.png — used in Navbar + Footer
+                            CTA section: white bg, navy text, saffron buttons
+                            Footer: #F4F7FC off-white bg, navy text
+                            Canvas div has onWheel forwarding → window.scrollBy so scroll works
+                              while phone is interactive
+
+src/components/landing/
+  Navbar.tsx                White frosted glass (always), Google Sans Flex, navy text
+                            Logo image (LOGO.png) top-left, Sign In navy outline, Download saffron
+                            No scroll-state logic (page always white)
+  PhoneScene.tsx            R3F Canvas — alpha:true, dpr:[1,2]
+                            Lighting: ambientLight #e8f0ff 0.7, directional white 1.2,
+                              saffron point 0.45, blue point 0.2
+                            ContactShadows: opacity=0.18, scale=4.5, blur=5, far=2 (soft/round)
+  PhoneModel.tsx            3D phone (RoundedBox body, PlaneGeometry screen, dynamic island,
+                              buttons, camera bump)
+                            SCREENSHOT SUPPORT:
+                              - Drop s0.png … s6.png in public/screenshots/ (1080×2340 recommended)
+                              - useTexture([...SCREENSHOTS]) preloads all 7 at startup
+                              - Cover-fit via texture.repeat/offset — no letterboxing any size image
+                              - Screen swaps at rotation MIDPOINT (ap≥0.5) so swap is invisible
+                              - Backward scroll: swap immediately (no rotation to hide behind)
+                              - Suspense fallback: DarkScreen (flat plane #090915)
+                              - Screen mesh: PlaneGeometry SCREEN_W=0.91 × SCREEN_H=1.93
+                                (no RoundedBox backing — phone body provides bezel)
+                            INTERACTION:
+                              - onPointerDown on group → window pointermove/pointerup listeners
+                              - Drag: userRotY/X with clamp ±π*0.9 / ±π/3
+                              - Momentum on release: velocity decays at 0.88×/frame
+                              - Spring-back: lerp to 0 at 0.05×/frame when not dragging
+                              - Cursor: 'grab' on hover, 'grabbing' on drag
+                            PARALLAX:
+                              - window mousemove → mouseX/Y refs (-1…1 normalised)
+                              - Subtle tilt ±0.12 Y / ±0.07 X follows cursor when idle
+                              - Parallax disabled when dragging
+                            SECTION TRANSITION:
+                              - TARGET_X = [1.5, 1.5, -1.5, 1.5, -1.5, 1.5, -1.5]
+                              - Forward scroll: sin-bell rotY (peak -0.7 rad at midpoint) + X arc
+                              - Backward scroll: smooth slide to target, no rotation
+                              - mountedRef guard: no animation on initial mount
+  ScrollDots.tsx            6 dots (sections 1–6), active = saffron pill, inactive = navy/22%
+                            Tooltip on hover. onDotClick → window.scrollTo section
+
+src/styles/landing.css      Google Sans Flex + JetBrains Mono imports
+                            White base (#FFFFFF), navy text, saffron accents
+                            .glass-card: white bg, saffron left border, box-shadow
+                            .feature-chip: saffron tint border/bg, darker saffron text
+                            .stat-divider, .scroll-dots, .anim-item classes
+
+src/assets/LOGO.png         App logo — imported in Navbar.tsx and Landing.tsx Footer
+
+public/screenshots/         App screenshots for 3D phone screen (NOT in src — Vite serves from public)
+  s0.png … s6.png           Drop here when ready. Dark screen shown until present.
+
 src/pages/Login.tsx         Tailwind dark/light, floating theme toggle
 src/pages/Register.tsx      Language chip picker
 src/pages/Dashboard.tsx     4 stat cards + case list (ProgressBar) + donut chart + notif feed
@@ -303,8 +370,10 @@ src/components/Layout.tsx   Sidebar + topbar (logo + theme toggle + avatar + sig
                             Fetches /notifications/mine for sidebar badge count
 NOTE: CaseCard, NotificationFeed, StatCard, TimelineBar components deleted (dead code — inline in pages)
 
+Packages: react-icons (feather Fi*, lucide Lu*, ionicons Io5*)
 Tailwind: CDN in index.html — darkMode: 'class', tailwind.config = { darkMode: 'class' }
 Recharts: PieChart for donut chart on dashboard
+Three.js stack: three@0.183, @react-three/fiber@9.5, @react-three/drei@10.7
 vite.config.ts: port 5173
 ```
 

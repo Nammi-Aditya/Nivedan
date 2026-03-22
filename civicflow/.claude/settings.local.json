@@ -16,7 +16,8 @@
       "Bash(cd /c/Upendra/IITT/ISE/civicflow/mobile && npx depcheck 2>&1)",
       "Bash(cd /c/Upendra/IITT/ISE/civicflow/web && npx depcheck 2>&1)",
       "Bash(cd /c/Upendra/IITT/ISE/civicflow/web && npx tsc --noEmit 2>&1)",
-      "Bash(cd /c/Upendra/IITT/ISE/civicflow/mobile && npx tsc --noEmit 2>&1)"
+      "Bash(cd /c/Upendra/IITT/ISE/civicflow/mobile && npx tsc --noEmit 2>&1)",
+      "Bash(cd:*)"
     ]
   }
 }
