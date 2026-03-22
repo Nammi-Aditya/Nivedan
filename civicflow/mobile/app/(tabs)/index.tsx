@@ -174,7 +174,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={[s.aiBanner, { backgroundColor: theme.primary }]}
           activeOpacity={0.85}
-          onPress={() => {}}
+          onPress={openFabSheet}
         >
           <View style={s.aiBannerText}>
             <Text style={s.aiBannerSmall}>{t("newToFiling")}</Text>
@@ -189,7 +189,7 @@ export default function HomeScreen() {
         {/* ── Categories ─────────────────────────────────────────────── */}
         <View style={s.sectionHeader}>
           <Text style={[s.sectionTitle, { color: theme.text }]}>{t("categories")}</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={openFabSheet}>
             <Text style={[s.viewAll, { color: theme.primary }]}>{t("viewAll")}</Text>
           </TouchableOpacity>
         </View>

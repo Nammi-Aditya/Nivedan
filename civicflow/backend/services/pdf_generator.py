@@ -188,7 +188,6 @@ def generate_salary_complaint(
     attempts    = _s(str(form_data.get("attempts_made",    "") or ""))
 
     contact = phone + (f", {email}" if email else "")
-    biz_str = f", engaged in {business}," if business else ","
 
     # ── Body paragraphs ───────────────────────────────────────────────────────
     # Each part is either a plain str (static text) or (str, "B") for bold user data.
@@ -361,38 +360,6 @@ def generate_salary_complaint(
     return base64.b64encode(main_bytes).decode()
 
 
-# ── Legacy helpers (kept for generic/non-salary forms) ────────────────────────
-
-def generate_salary_complaint_pdf(data: dict) -> bytes:
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_margins(20, 20, 20)
-    pdf.set_font("Times", "B", 16)
-    pdf.cell(0, 10, "SALARY COMPLAINT FORM", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Times", "", 10)
-    pdf.cell(0, 6, "Government Labour Department", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(8)
-    filed_date = datetime.now(timezone.utc).strftime("%d/%m/%Y")
-    pdf.set_font("Times", "", 9)
-    pdf.cell(0, 6, f"Date Filed: {filed_date}", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(6)
-    def row(label: str, value: str) -> None:
-        pdf.set_font("Times", "B", 10)
-        pdf.cell(72, 7, f"{label}:", new_x="RIGHT", new_y="TOP")
-        pdf.set_font("Times", "", 10)
-        pdf.cell(0, 7, _s(value) or "-", new_x="LMARGIN", new_y="NEXT")
-    row("Employer / Company Name", data.get("employer_name", ""))
-    row("Employer Address",        data.get("employer_address", ""))
-    row("Date of Joining",         data.get("employment_start", ""))
-    row("Last Salary Received",    data.get("last_salary_date", ""))
-    row("Months of Unpaid Salary", data.get("months_unpaid", ""))
-    row("Total Amount Owed (INR)", data.get("amount_owed", ""))
-    pdf.ln(8)
-    pdf.cell(80, 6, "Complainant Signature: _____________", new_x="RIGHT", new_y="TOP")
-    pdf.cell(0,  6, "Date: ______________", new_x="LMARGIN", new_y="NEXT")
-    return bytes(pdf.output())
-
-
 def _append_signature_and_docs(
     main_pdf_bytes: bytes,
     signature_b64: str = None,
@@ -490,8 +457,6 @@ def generate_pdf_b64(
 
 
 def generate_pdf(category: str, subcategory: str, data: dict) -> bytes:
-    if "labor" in category.lower() and "salary" in subcategory.lower():
-        return generate_salary_complaint_pdf(data)
     wm_bytes = _make_watermark_bytes(0.10)
     pdf = _make_pdf(wm_bytes)
     pdf.add_page()

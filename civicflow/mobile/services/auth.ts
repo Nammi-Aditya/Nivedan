@@ -44,7 +44,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
 // ---------------------------------------------------------------------------
 // storeToken — saves JWT (SecureStore on native, localStorage on web)
 // ---------------------------------------------------------------------------
-export async function storeToken(token: string): Promise<void> {
+async function storeToken(token: string): Promise<void> {
   await saveSecure(TOKEN_KEY, token);
 }
 

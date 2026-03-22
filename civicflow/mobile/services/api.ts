@@ -10,11 +10,11 @@ const TOKEN_KEY = "civicflow_jwt";
  *  - Native: EXPO_PUBLIC_API_URL env var → Metro host auto-detect → localhost fallback.
  */
 function getBaseUrl(): string {
-  if (Platform.OS === "web") {
-    return "http://localhost:5000";
-  }
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
+  }
+  if (Platform.OS === "web") {
+    return "http://localhost:5000";
   }
   // hostUri looks like "192.168.1.5:8081" — strip the port and use 5000
   const metroHost = Constants.expoConfig?.hostUri?.split(":")[0];

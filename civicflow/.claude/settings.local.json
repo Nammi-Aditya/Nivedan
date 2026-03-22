@@ -21,7 +21,18 @@
       "Bash(claude mcp:*)",
       "mcp__stitch__list_projects",
       "mcp__stitch__list_screens",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx knip:*)",
+      "Bash(grep -rn darkTheme /c/Upendra/IITT/ISE/civicflow/mobile/ --include=*.tsx --include=*.ts)",
+      "Bash(grep -rn \"setThemeMode\\\\|getThemeMode\" /c/Upendra/IITT/ISE/civicflow/mobile/ --include=*.tsx --include=*.ts)",
+      "Bash(grep -rn \"AuthUser\\\\|RegisterData\" /c/Upendra/IITT/ISE/civicflow/mobile/ --include=*.tsx --include=*.ts)",
+      "Bash(grep -rn \"def get_fields\\\\|def next_missing\\\\|def submit_to_portal\\\\|def build_summary\" /c/Upendra/IITT/ISE/civicflow/backend/ --include=*.py)",
+      "Bash(grep -rn \"chat\\\\b\\\\|\\\\/chat\" /c/Upendra/IITT/ISE/civicflow/mobile/ --include=*.tsx --include=*.ts)",
+      "Bash(grep -rn \"\\\\/complaints\\\\/chat\\\\|chat.*post\\\\|\\\\/chat\" /c/Upendra/IITT/ISE/civicflow/mobile/ --include=*.tsx --include=*.ts)",
+      "Bash(grep -E \"mine|\\\\/complaints\\\\/$|\\\\/complaints\\\\/chat\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(k\\) for k in d.get\\(''''dependencies'''',{}\\)]\")",
+      "Bash(grep -rn expo-haptics /c/Upendra/IITT/ISE/civicflow/mobile/app/ --include=*.tsx)",
+      "Bash(git stash:*)"
     ]
   }
 }

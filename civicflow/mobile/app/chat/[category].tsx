@@ -129,7 +129,7 @@ export default function ChatScreen() {
 
         const greet = await sendAgentMessage(cid, "");
         if (cancelled) return;
-        applyResponse(greet);
+        applyResponseRef.current?.(greet);
         setStage("chatting");
       } catch (e: any) {
         if (cancelled) return;
@@ -451,7 +451,7 @@ export default function ChatScreen() {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 let _uid = 0;
-function uid() { return `${Date.now()}-${++_uid}`; }
+function uid() { return `${Date.now()}-${++_uid}-${Math.random().toString(36).slice(2, 7)}`; }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 

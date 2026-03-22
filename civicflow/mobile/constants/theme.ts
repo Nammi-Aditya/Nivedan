@@ -98,10 +98,6 @@ export function setThemeMode(mode: ThemeMode) {
   saveSecure(STORAGE_KEY, mode).catch(() => {});
 }
 
-/** Returns current mode without subscribing (use sparingly). */
-export function getThemeMode(): ThemeMode {
-  return _mode;
-}
 
 /** Load persisted preference at startup (call once in root layout). */
 export async function loadPersistedTheme() {
@@ -155,16 +151,6 @@ export const STATUS_COLORS: Record<string, string> = {
   failed:       "#EF4444",
 };
 
-export const STATUS_LABELS: Record<string, string> = {
-  pending:      "Pending",
-  submitted:    "Submitted",
-  filed:        "Filed",
-  acknowledged: "Acknowledged",
-  under_review: "Under Review",
-  next_step:    "In Progress",
-  resolved:     "Resolved",
-  failed:       "Failed",
-};
 
 export function trustStripColor(status: string): string {
   if (["resolved", "next_step"].includes(status)) return "#22C55E";

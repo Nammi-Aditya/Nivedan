@@ -274,27 +274,6 @@ def _parse_tail(llm_text: str) -> tuple[dict, str]:
     return extracted, action, clean
 
 
-def _build_summary(form_data: dict, cfg: dict) -> str:
-    """Build a human-readable summary of all collected fields."""
-    lines = ["Here is everything I have collected for your complaint:\n"]
-    for key, label in cfg["fields"]:
-        value = form_data.get(key)
-        if value:
-            # Make the label title-case and clean it up
-            display_label = (
-                label.replace("your ", "")
-                     .replace("the ", "")
-                     .strip()
-                     .title()
-            )
-            lines.append(f"  \u2022 {display_label}: {value}")
-    lines.append(
-        "\nPlease review the above details carefully.\n"
-        "If everything looks correct, say \u2018Yes, generate my complaint form\u2019.\n"
-        "If anything is wrong, just tell me what needs to be changed."
-    )
-    return "\n".join(lines)
-
 
 def _fetch_blank_form_b64(cfg: dict) -> str | None:
     """Fetch blank form PDF from mock portal using the subcategory's form_name.
@@ -443,8 +422,10 @@ def _handle_rejected(cid, complaint: dict, form_data: dict, cfg: dict) -> dict:
             },
             "thinking_steps": thinking_steps,
         }
-    except Exception as e:
-        return _err(f"Could not regenerate form: {e}")
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Could not regenerate form after rejection")
+        return _err("Could not regenerate the form. Please try again.")
 
 
 def _handle_submitted(complaint: dict) -> dict:
@@ -482,9 +463,11 @@ def _handle_llm_turn(
         llm_history = [{"role": "user", "content": user_message or "Hello"}]
 
     try:
-        llm_reply = chat_completion(llm_history, system_prompt=system)
+        llm_reply = chat_completion(llm_history[-40:], system_prompt=system)
     except Exception as e:
-        return _err(f"AI service unavailable: {e}")
+        import logging
+        logging.getLogger(__name__).exception("Sarvam call failed")
+        return _err("AI service is temporarily unavailable. Please try again.")
 
     extracted, llm_action, reply_text = _parse_tail(llm_reply)
     history.append({"role": "assistant", "content": llm_reply})
@@ -616,8 +599,10 @@ def _handle_llm_turn(
                 "action_data":    {"status": "filed", "portal_ref_id": portal_ref_id},
                 "thinking_steps": thinking_steps,
             }
-        except Exception as e:
-            reply_text = f"Submission failed: {e}. Please try again."
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Portal submission failed for %s", complaint_id)
+            reply_text = "Submission failed. Please try again in a moment."
 
     # ── Persist ───────────────────────────────────────────────────────────
     db.complaints.update_one(

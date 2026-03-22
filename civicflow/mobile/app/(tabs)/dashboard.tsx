@@ -72,13 +72,16 @@ export default function DashboardScreen() {
   useEffect(() => { load(); }, [load]);
 
   // ── Auto-poll every 8s while the tab is focused ────────────────────────────
+  // Only poll when at least one complaint is in an active (non-terminal) state
+  const ACTIVE_STATUSES = new Set(["pending", "filed", "acknowledged", "under_review", "next_step"]);
   useFocusEffect(
     useCallback(() => {
       const poll = setInterval(() => {
-        if (AppState.currentState === "active") load(false, true);
+        const hasActive = complaints.some((c) => ACTIVE_STATUSES.has(c.status));
+        if (AppState.currentState === "active" && hasActive) load(false, true);
       }, 8_000);
       return () => clearInterval(poll);
-    }, [load])
+    }, [load, complaints])
   );
 
   // ── Immediately refresh when a new notification arrives ────────────────────

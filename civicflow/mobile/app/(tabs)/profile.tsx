@@ -166,7 +166,7 @@ export default function ProfileScreen() {
             style={s.infoRow}
             activeOpacity={0.7}
             onPress={async () => {
-              await removeSecure("hasSeenOnboarding");
+              try { await removeSecure("hasSeenOnboarding"); } catch {}
               router.push("/auth/onboarding" as any);
             }}
           >

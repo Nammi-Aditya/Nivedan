@@ -36,6 +36,9 @@ export default function InAppBanner({ banner, onDismiss }: Props) {
   useEffect(() => {
     if (!banner) return;
 
+    slideY.stopAnimation();
+    if (timerRef.current) clearTimeout(timerRef.current);
+
     Animated.spring(slideY, {
       toValue: 0,
       useNativeDriver: true,
