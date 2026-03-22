@@ -17,7 +17,11 @@
       "Bash(cd /c/Upendra/IITT/ISE/civicflow/web && npx depcheck 2>&1)",
       "Bash(cd /c/Upendra/IITT/ISE/civicflow/web && npx tsc --noEmit 2>&1)",
       "Bash(cd /c/Upendra/IITT/ISE/civicflow/mobile && npx tsc --noEmit 2>&1)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(claude mcp:*)",
+      "mcp__stitch__list_projects",
+      "mcp__stitch__list_screens",
+      "Bash(npx tsc:*)"
     ]
   }
 }

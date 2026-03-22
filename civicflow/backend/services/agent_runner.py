@@ -315,8 +315,16 @@ def _fetch_blank_form_b64(cfg: dict) -> str | None:
 
 
 def _submit_to_portal(complaint_id: str, user: dict, form_data: dict, cfg: dict, category: str) -> dict:
+    complaint       = db.complaints.find_one({"_id": ObjectId(complaint_id)})
+    signature_b64   = (complaint or {}).get("signature_b64")
+    supporting_docs = list((complaint or {}).get("supporting_docs") or [])
+
     pdf_data   = {**form_data, "declaration_date": datetime.now(timezone.utc).strftime("%Y-%m-%d")}
-    pdf_base64 = generate_pdf_b64(cfg["form_name"], pdf_data)
+    pdf_base64 = generate_pdf_b64(
+        cfg["form_name"], pdf_data,
+        signature_b64=signature_b64,
+        supporting_docs=supporting_docs,
+    )
     resp = requests.post(
         f"{MOCK_PORTAL_URL}/portal/submit",
         json={
@@ -400,8 +408,14 @@ def _handle_rejected(cid, complaint: dict, form_data: dict, cfg: dict) -> dict:
         thinking_steps.append("⚠ Auto-correction skipped — regenerating with existing data...")
 
     try:
+        signature_b64   = complaint.get("signature_b64")
+        supporting_docs = list(complaint.get("supporting_docs") or [])
         pdf_data   = {**form_data, "declaration_date": datetime.now(timezone.utc).strftime("%Y-%m-%d")}
-        pdf_base64 = generate_pdf_b64(cfg["form_name"], pdf_data)
+        pdf_base64 = generate_pdf_b64(
+            cfg["form_name"], pdf_data,
+            signature_b64=signature_b64,
+            supporting_docs=supporting_docs,
+        )
         thinking_steps.append("🖨️ Corrected PDF ready")
         db.complaints.update_one(
             {"_id": cid},

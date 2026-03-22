@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { loginUser, registerUser, logout as clearToken, getToken } from "../services/auth";
 import { api } from "../services/api";
+import { setLanguage, type LangCode } from "../constants/i18n";
 
 export interface AuthUser {
   id: string;
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (token) {
           const me = await api.authedGet<AuthUser>("/auth/me");
           setUser(me);
+          setLanguage(me.preferred_language as LangCode);
         }
       } catch {
         // Token expired or invalid — stay logged out, token will be replaced on next login
@@ -51,11 +53,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const { user: u } = await loginUser(email, password);
     setUser(u);
+    setLanguage(u.preferred_language as LangCode);
   }, []);
 
   const register = useCallback(async (data: RegisterData) => {
     const { user: u } = await registerUser(data);
     setUser(u);
+    setLanguage(u.preferred_language as LangCode);
   }, []);
 
   const logout = useCallback(async () => {

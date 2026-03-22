@@ -62,4 +62,6 @@ export const api = {
     authedRequest<T>(path, { method: "POST", body: JSON.stringify(body) }),
   authedPatch: <T>(path: string, body: unknown) =>
     authedRequest<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+  authedDelete: <T>(path: string) =>
+    authedRequest<T>(path, { method: "DELETE" }),
 };

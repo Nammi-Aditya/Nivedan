@@ -8,11 +8,17 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   ActivityIndicator,
-  useColorScheme,
+  Image,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../constants/theme";
+
+const LOGO       = require("../../assets/images/LOGO.png");
+const HERO_IMAGE = require("../../assets/vectors/RegisterPagePhoto.png");
 
 const LANGUAGES = [
   { code: "en", label: "English" },
@@ -25,18 +31,18 @@ const LANGUAGES = [
 
 export default function RegisterScreen() {
   const { register } = useAuth();
-  const router = useRouter();
-  const scheme = useColorScheme();
-  const dark = scheme === "dark";
-  const c = dark ? colors.dark : colors.light;
+  const router  = useRouter();
+  const theme   = useTheme();
+  const insets  = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name,     setName]     = useState("");
+  const [email,    setEmail]    = useState("");
+  const [phone,    setPhone]    = useState("");
   const [password, setPassword] = useState("");
-  const [lang, setLang] = useState("en");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [lang,     setLang]     = useState("en");
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !phone.trim() || !password) {
@@ -46,8 +52,6 @@ export default function RegisterScreen() {
     setLoading(true);
     setError(null);
     try {
-      // register() stores token + sets user in context
-      // Auth guard in _layout.tsx automatically redirects to /(tabs)
       await register({
         name: name.trim(),
         email: email.trim().toLowerCase(),
@@ -67,159 +71,219 @@ export default function RegisterScreen() {
     }
   };
 
+  const heroHeight = height * 0.30;
+
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: c.bg }]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-      <ScrollView
-        contentContainerStyle={styles.inner}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[styles.logo, { color: c.accent }]}>CivicFlow</Text>
-        <Text style={[styles.tagline, { color: c.muted }]}>
-          Your rights, in your language.
-        </Text>
+    <View style={[s.root, { backgroundColor: theme.background }]}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Hero image ──────────────────────────────────────────────── */}
+          <View style={[s.heroWrap, { height: heroHeight + insets.top }]}>
+            <Image
+              source={HERO_IMAGE}
+              style={[s.heroImage, { height: heroHeight + insets.top }]}
+              resizeMode="cover"
+            />
+          </View>
 
-        <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
-          <Text style={[styles.title, { color: c.text }]}>Create account</Text>
+          {/* ── Card ────────────────────────────────────────────────────── */}
+          <View style={[s.card, { backgroundColor: theme.surface, marginTop: -28 }]}>
 
-          {error && (
-            <View style={[styles.errorBox, { backgroundColor: c.errorBg }]}>
-              <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
+            {/* Brand */}
+            <View style={s.brand}>
+              <Image source={LOGO} style={s.logo} resizeMode="contain" />
+              <Text style={[s.appName, { color: theme.primary }]}>Nivedan</Text>
+              <Text style={[s.tagline, { color: theme.subtext }]}>
+                {"File Government Complaints.\nFrom Your Pocket."}
+              </Text>
             </View>
-          )}
 
-          <Text style={[styles.label, { color: c.muted }]}>Full name</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: c.inputBg, borderColor: c.border, color: c.text }]}
-            value={name}
-            onChangeText={setName}
-            placeholder="Ramesh Kumar"
-            placeholderTextColor={c.placeholder}
-            autoCapitalize="words"
-          />
+            <Text style={[s.title, { color: theme.primary }]}>Create account</Text>
 
-          <Text style={[styles.label, { color: c.muted }]}>Email</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: c.inputBg, borderColor: c.border, color: c.text }]}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={c.placeholder}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+            {error && (
+              <View style={[s.errorBox, { backgroundColor: theme.errorContainer }]}>
+                <Text style={[s.errorText, { color: theme.error }]}>{error}</Text>
+              </View>
+            )}
 
-          <Text style={[styles.label, { color: c.muted }]}>Phone number</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: c.inputBg, borderColor: c.border, color: c.text }]}
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="+91 98765 43210"
-            placeholderTextColor={c.placeholder}
-            keyboardType="phone-pad"
-          />
+            <Text style={[s.label, { color: theme.subtext }]}>Full name</Text>
+            <TextInput
+              style={[s.input, {
+                backgroundColor: theme.surfaceContainerLow,
+                color: theme.text,
+                borderColor: theme.outlineVariant,
+              }]}
+              value={name}
+              onChangeText={setName}
+              placeholder="Ramesh Kumar"
+              placeholderTextColor={theme.outline}
+              autoCapitalize="words"
+            />
 
-          <Text style={[styles.label, { color: c.muted }]}>Password</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: c.inputBg, borderColor: c.border, color: c.text }]}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            placeholderTextColor={c.placeholder}
-            secureTextEntry
-          />
+            <Text style={[s.label, { color: theme.subtext }]}>Email address</Text>
+            <TextInput
+              style={[s.input, {
+                backgroundColor: theme.surfaceContainerLow,
+                color: theme.text,
+                borderColor: theme.outlineVariant,
+              }]}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              placeholderTextColor={theme.outline}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-          <Text style={[styles.label, { color: c.muted }]}>Preferred language</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.langRow}
-          >
-            {LANGUAGES.map((l) => {
-              const selected = l.code === lang;
-              return (
-                <TouchableOpacity
-                  key={l.code}
-                  onPress={() => setLang(l.code)}
-                  style={[
-                    styles.langChip,
-                    {
-                      backgroundColor: selected ? c.accent : c.inputBg,
-                      borderColor: selected ? c.accent : c.border,
-                    },
-                  ]}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.langChipText, { color: selected ? "#fff" : c.muted }]}>
-                    {l.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+            <Text style={[s.label, { color: theme.subtext }]}>Phone number</Text>
+            <TextInput
+              style={[s.input, {
+                backgroundColor: theme.surfaceContainerLow,
+                color: theme.text,
+                borderColor: theme.outlineVariant,
+              }]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+91 98765 43210"
+              placeholderTextColor={theme.outline}
+              keyboardType="phone-pad"
+            />
 
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: c.accent }, loading && styles.btnDisabled]}
-            onPress={handleRegister}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.btnText}>Create account</Text>
-            }
-          </TouchableOpacity>
-        </View>
+            <Text style={[s.label, { color: theme.subtext }]}>Password</Text>
+            <TextInput
+              style={[s.input, {
+                backgroundColor: theme.surfaceContainerLow,
+                color: theme.text,
+                borderColor: theme.outlineVariant,
+              }]}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              placeholderTextColor={theme.outline}
+              secureTextEntry
+            />
 
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: c.muted }]}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push("/auth/login")}>
-            <Text style={[styles.link, { color: c.accent }]}>Sign in</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            {/* Language chips */}
+            <Text style={[s.label, { color: theme.subtext }]}>Preferred language</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.langRow}
+            >
+              {LANGUAGES.map((l) => {
+                const selected = l.code === lang;
+                return (
+                  <TouchableOpacity
+                    key={l.code}
+                    onPress={() => setLang(l.code)}
+                    style={[
+                      s.langChip,
+                      selected
+                        ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                        : { backgroundColor: theme.surfaceContainerLow, borderColor: theme.outlineVariant },
+                    ]}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[s.langChipText, { color: selected ? "#fff" : theme.subtext }]}>
+                      {l.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[s.btn, { backgroundColor: theme.secondary, opacity: loading ? 0.7 : 1 }]}
+              onPress={handleRegister}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={s.btnText}>Create account</Text>
+              }
+            </TouchableOpacity>
+
+            {/* Footer */}
+            <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+              <Text style={[s.footerText, { color: theme.subtext }]}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => router.push("/auth/login")}>
+                <Text style={[s.link, { color: theme.secondary }]}>Sign in</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const colors = {
-  dark: {
-    bg: "#0d0d0d", card: "#1a1a1a", border: "#2a2a2a", inputBg: "#111111",
-    text: "#f5f5f5", muted: "#888888", placeholder: "#444444",
-    accent: "#7c3aed", error: "#f87171", errorBg: "#2d1515",
-  },
-  light: {
-    bg: "#f8fafc", card: "#ffffff", border: "#e2e8f0", inputBg: "#f1f5f9",
-    text: "#0f172a", muted: "#64748b", placeholder: "#94a3b8",
-    accent: "#7c3aed", error: "#dc2626", errorBg: "#fef2f2",
-  },
-};
-
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   root: { flex: 1 },
-  inner: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 48 },
-  logo: { fontSize: 32, fontWeight: "800", letterSpacing: -0.5, marginBottom: 4 },
-  tagline: { fontSize: 14, marginBottom: 32 },
-  card: { borderRadius: 16, borderWidth: 1, padding: 24 },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 20 },
-  errorBox: { borderRadius: 8, padding: 12, marginBottom: 16 },
-  errorText: { fontSize: 13, fontWeight: "500" },
-  label: { fontSize: 13, fontWeight: "500", marginBottom: 6 },
-  input: {
-    borderRadius: 10, borderWidth: 1,
-    paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, marginBottom: 16,
+
+  heroWrap:  { width: "100%", overflow: "hidden" },
+  heroImage: { width: "100%" },
+  card: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 5,
   },
+
+  brand: { alignItems: "center", marginBottom: 24 },
+  logo:  { width: 48, height: 48, marginBottom: 8 },
+  appName: { fontSize: 24, fontWeight: "800", letterSpacing: -0.5, marginBottom: 6 },
+  tagline: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 20,
+    fontWeight: "500",
+    letterSpacing: 0.1,
+  },
+
+  title: { fontSize: 22, fontWeight: "700", marginBottom: 20 },
+
+  errorBox:  { borderRadius: 10, padding: 12, marginBottom: 16 },
+  errorText: { fontSize: 13, fontWeight: "500" },
+
+  label: { fontSize: 12, fontWeight: "600", marginBottom: 6, letterSpacing: 0.3 },
+  input: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    marginBottom: 16,
+  },
+
   langRow: { gap: 8, marginBottom: 20 },
-  langChip: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
+  langChip: { borderRadius: 100, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 9 },
   langChipText: { fontSize: 13, fontWeight: "500" },
-  btn: { borderRadius: 10, paddingVertical: 14, alignItems: "center", marginTop: 4 },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  footer: { flexDirection: "row", justifyContent: "center", marginTop: 24 },
+
+  btn: {
+    borderRadius: 100,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 4,
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  btnText: { color: "#fff", fontSize: 15, fontWeight: "700", letterSpacing: 0.3 },
+
+  footer:     { flexDirection: "row", justifyContent: "center", marginTop: 24 },
   footerText: { fontSize: 14 },
-  link: { fontSize: 14, fontWeight: "600" },
+  link:       { fontSize: 14, fontWeight: "700" },
 });

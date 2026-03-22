@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../services/api";
 import { sendAgentMessage, AgentResponse } from "../../services/agent";
 import { findSubcategory } from "../../constants/categories";
@@ -43,14 +44,14 @@ export default function ChatScreen() {
   const parentCategory = resolved?.category ?? null;
   const subcategory    = resolved?.subcategory ?? null;
 
-  const [stage, setStage]                 = useState<Stage>("loading");
-  const [messages, setMessages]           = useState<Message[]>([]);
-  const [input, setInput]                 = useState("");
-  const [complaintId, setComplaintId]     = useState<string | null>(null);
-  const [thinking, setThinking]           = useState(false);
+  const [stage,         setStage]         = useState<Stage>("loading");
+  const [messages,      setMessages]      = useState<Message[]>([]);
+  const [input,         setInput]         = useState("");
+  const [complaintId,   setComplaintId]   = useState<string | null>(null);
+  const [thinking,      setThinking]      = useState(false);
   const [thinkingSteps, setThinkingSteps] = useState<string[] | undefined>();
-  const [uploading, setUploading]         = useState(false); // file upload in progress (not AI)
-  const [pdfViewer, setPdfViewer]         = useState<{
+  const [uploading,     setUploading]     = useState(false);
+  const [pdfViewer,     setPdfViewer]     = useState<{
     visible: boolean; filename: string; base64?: string;
   }>({ visible: false, filename: "" });
 
@@ -66,8 +67,6 @@ export default function ChatScreen() {
   const pushStatusCard = useCallback((status: string, label: string) => {
     pushMsg({ id: uid(), type: "status_update", status, label });
   }, [pushMsg]);
-
-  // ── Apply agent response to UI ────────────────────────────────────────────
 
   const applyResponse = useCallback((res: AgentResponse) => {
     if (res.thinking_steps?.length) setThinkingSteps([...res.thinking_steps]);
@@ -111,8 +110,6 @@ export default function ChatScreen() {
     }
   }, [pushMsg, stage, refreshNotifications]);
 
-  // ── Init: create complaint + get greeting ────────────────────────────────
-
   useEffect(() => {
     if (!parentCategory || !subcategory) return;
     let cancelled = false;
@@ -148,8 +145,6 @@ export default function ChatScreen() {
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Send user message ─────────────────────────────────────────────────────
-
   const handleSend = async (overrideText?: string) => {
     const text = (overrideText ?? input).trim();
     if (!text || !complaintId || stage === "loading" || stage === "submitted") return;
@@ -172,9 +167,6 @@ export default function ChatScreen() {
     }
   };
 
-  // ── Signature upload ──────────────────────────────────────────────────────
-
-  // Max base64 chars before upload — 1 200 000 chars ≈ 900 KB decoded (server rejects above this)
   const MAX_B64 = 1_200_000;
 
   const handleSignatureUpload = async () => {
@@ -183,7 +175,6 @@ export default function ChatScreen() {
       pushMsg({ id: uid(), type: "agent", text: "Please allow photo access to upload your signature." });
       return;
     }
-    // Open picker BEFORE setting thinking — picker is not "loading"
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       base64: true,
@@ -206,7 +197,7 @@ export default function ChatScreen() {
       });
       pushMsg({ id: uid(), type: "uploaded_file_card", filename: "signature.jpg", isSignature: true });
       setUploading(false);
-      await handleSend("signature uploaded"); // this sets thinking=true for AI response
+      await handleSend("signature uploaded");
     } catch (e) {
       if (__DEV__) console.warn("[signature upload]", e);
       pushMsg({ id: uid(), type: "agent", text: "Could not upload signature. Please try again." });
@@ -216,8 +207,6 @@ export default function ChatScreen() {
   };
 
   const handleSignatureSkip = () => handleSend("skip signature");
-
-  // ── Document upload ───────────────────────────────────────────────────────
 
   const handleDocumentUpload = async (source: "camera" | "gallery" | "file") => {
     let base64Data = "";
@@ -232,8 +221,8 @@ export default function ChatScreen() {
         });
         if (result.canceled || !result.assets?.[0]) return;
         const asset = result.assets[0];
-        filename  = asset.name;
-        mimeType  = asset.mimeType || "application/octet-stream";
+        filename   = asset.name;
+        mimeType   = asset.mimeType || "application/octet-stream";
         base64Data = await FileSystem.readAsStringAsync(asset.uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
@@ -245,7 +234,6 @@ export default function ChatScreen() {
           pushMsg({ id: uid(), type: "agent", text: "Please allow camera/photo access to add documents." });
           return;
         }
-        // Open picker before showing loading — user is browsing, not waiting on us
         const result = source === "camera"
           ? await ImagePicker.launchCameraAsync({ base64: true, quality: 0.4 })
           : await ImagePicker.launchImageLibraryAsync({
@@ -264,7 +252,6 @@ export default function ChatScreen() {
         return;
       }
 
-      // Show a lightweight uploading state — not the AI thinking overlay
       setUploading(true);
       await api.authedPost(`/complaints/${complaintId}/upload-doc`, {
         type: "supporting",
@@ -283,14 +270,8 @@ export default function ChatScreen() {
 
   const handleDocumentsDone = () => handleSend("done uploading documents");
 
-  // Sync refs to the latest closures on every render.
-  // This is intentional: polling intervals and the pdf-viewer callback hold a ref,
-  // not a direct reference, so they always call the freshest version of these functions
-  // without being listed as effect dependencies (which would restart the intervals).
   handleSendRef.current    = handleSend;
   applyResponseRef.current = applyResponse;
-
-  // ── Polling (rejection + status fallback) ────────────────────────────────
 
   useComplaintPolling({
     complaintId,
@@ -304,13 +285,9 @@ export default function ChatScreen() {
     setThinkingSteps,
   });
 
-  // ── Auto-scroll whenever a new message is added ──────────────────────────
-
   useEffect(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [messages.length]);
-
-  // ── Scroll to end when keyboard opens ────────────────────────────────────
 
   useEffect(() => {
     const show = Keyboard.addListener("keyboardDidShow", () => {
@@ -320,42 +297,39 @@ export default function ChatScreen() {
     return () => show.remove();
   }, []);
 
-  // ── Guard ─────────────────────────────────────────────────────────────────
-
   if (!resolved) {
     return (
       <SafeAreaView style={[s.center, { backgroundColor: theme.background }]}>
         <Text style={[s.bodyText, { color: theme.text }]}>Unknown issue type.</Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
-          <Text style={{ color: theme.primary, fontSize: 15 }}>← Go back</Text>
+          <Text style={{ color: theme.secondary, fontSize: 15 }}>← Go back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <SafeAreaView style={[s.root, { backgroundColor: theme.background }]}>
-      {/* Header */}
-      <View style={[s.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <View style={[s.header, { backgroundColor: theme.primary }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={s.backBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={[s.backArrow, { color: theme.primary }]}>←</Text>
+          <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Text style={[s.headerTitle, { color: theme.text }]} numberOfLines={1}>
+          <Text style={s.headerTitle} numberOfLines={1}>
             {subcategory?.label ?? parentCategory?.label}
           </Text>
-          <Text style={[s.headerSub, { color: theme.subtext }]} numberOfLines={1}>
+          <Text style={s.headerSub} numberOfLines={1}>
             {parentCategory?.icon}  {parentCategory?.label}
           </Text>
         </View>
-        <View style={[s.aiBadge, { backgroundColor: theme.primary + "22" }]}>
-          <Text style={[s.aiBadgeText, { color: theme.primary }]}>AI</Text>
+        <View style={[s.aiBadge, { backgroundColor: theme.secondary }]}>
+          <Ionicons name="sparkles" size={12} color="#fff" />
+          <Text style={s.aiBadgeText}>AI</Text>
         </View>
       </View>
 
@@ -414,7 +388,7 @@ export default function ChatScreen() {
                 s.inputBar,
                 {
                   backgroundColor: theme.surface,
-                  borderTopColor: theme.border,
+                  borderTopColor: theme.surfaceContainerHigh,
                   paddingBottom: Math.max(insets.bottom, 12),
                 },
               ]}
@@ -423,12 +397,16 @@ export default function ChatScreen() {
                 <TextInput
                   style={[
                     s.textInput,
-                    { backgroundColor: theme.background, color: theme.text, borderColor: theme.border },
+                    {
+                      backgroundColor: theme.surfaceContainerLow,
+                      color: theme.text,
+                      borderColor: theme.outlineVariant,
+                    },
                   ]}
                   value={input}
                   onChangeText={setInput}
-                  placeholder={stage === "confirming" ? "Or type your reply here…" : "Type your message..."}
-                  placeholderTextColor={theme.subtext}
+                  placeholder={stage === "confirming" ? "Or type your reply here…" : "Type your message…"}
+                  placeholderTextColor={theme.outline}
                   onSubmitEditing={() => handleSend()}
                   returnKeyType="send"
                   editable={!thinking && stage !== "loading"}
@@ -437,12 +415,12 @@ export default function ChatScreen() {
                 <TouchableOpacity
                   style={[
                     s.sendBtn,
-                    { backgroundColor: theme.primary, opacity: thinking || !input.trim() ? 0.45 : 1 },
+                    { backgroundColor: theme.secondary, opacity: thinking || !input.trim() ? 0.45 : 1 },
                   ]}
                   onPress={() => handleSend()}
                   disabled={thinking || !input.trim()}
                 >
-                  <Text style={s.sendIcon}>↑</Text>
+                  <Ionicons name="arrow-up" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -486,17 +464,22 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 14,
     gap: 10,
   },
   backBtn:      { padding: 4 },
-  backArrow:    { fontSize: 20 },
   headerCenter: { flex: 1 },
-  headerTitle:  { fontSize: 16, fontWeight: "700" },
-  headerSub:    { fontSize: 11, marginTop: 1 },
-  aiBadge:      { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  aiBadgeText:  { fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  headerTitle:  { fontSize: 16, fontWeight: "700", color: "#fff" },
+  headerSub:    { fontSize: 11, marginTop: 2, color: "rgba(255,255,255,0.65)" },
+  aiBadge:      {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  aiBadgeText:  { fontSize: 11, fontWeight: "800", color: "#fff", letterSpacing: 0.5 },
 
   messageList: { padding: 16, gap: 12, paddingBottom: 8 },
 
@@ -507,7 +490,7 @@ const s = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 11,
     fontSize: 15,
     maxHeight: 100,
   },
@@ -518,5 +501,4 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sendIcon: { color: "#fff", fontSize: 20, fontWeight: "700" },
 });

@@ -101,3 +101,28 @@ def login():
 @jwt_required
 def me():
     return jsonify(_serialize_user(g.user)), 200
+
+
+# ---------------------------------------------------------------------------
+# PATCH /auth/me  — update mutable profile fields (preferred_language)
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/me", methods=["PATCH"])
+@jwt_required
+def update_me():
+    data = request.get_json(silent=True) or {}
+    preferred_language = data.get("preferred_language")
+
+    if preferred_language is not None:
+        if preferred_language not in SUPPORTED_LANGUAGES:
+            return jsonify({
+                "error": f"preferred_language must be one of: {', '.join(sorted(SUPPORTED_LANGUAGES))}"
+            }), 400
+        db.users.update_one(
+            {"_id": g.user["_id"]},
+            {"$set": {"preferred_language": preferred_language}},
+        )
+        updated = db.users.find_one({"_id": g.user["_id"]})
+        return jsonify(_serialize_user(updated)), 200
+
+    return jsonify({"error": "no updatable fields provided"}), 400

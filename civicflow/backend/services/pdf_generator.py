@@ -1,33 +1,40 @@
 import base64
+import os
 import random
 from datetime import datetime, timezone
 from io import BytesIO
 
 from fpdf import FPDF
 
+# ── Asset paths ───────────────────────────────────────────────────────────────
+_ASSETS = os.path.join(os.path.dirname(__file__), "..", "assets")
+_EMBLEM_PATH    = os.path.join(_ASSETS, "indian_emblem.png")
+_WATERMARK_PATH = os.path.join(_ASSETS, "watermark.png")
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _s(text: str) -> str:
-    """Strip characters outside Latin-1 so Helvetica never raises."""
+    """Strip characters outside Latin-1 so built-in fonts never raise."""
     return str(text).encode("latin-1", errors="ignore").decode("latin-1")
 
 
 def _orient_image(img_bytes: bytes) -> bytes:
-    """Apply EXIF orientation (phone photos are often 90° rotated) using Pillow."""
+    """Apply EXIF orientation (phone photos are often 90° rotated)."""
     try:
         from PIL import Image, ImageOps
         img = Image.open(BytesIO(img_bytes))
-        img = ImageOps.exif_transpose(img)   # applies rotation/flip from EXIF tag
+        img = ImageOps.exif_transpose(img)
         if img.mode in ("RGBA", "LA", "P"):
             img = img.convert("RGB")
         out = BytesIO()
         img.save(out, format="JPEG", quality=88)
         return out.getvalue()
     except Exception:
-        return img_bytes  # Pillow unavailable or unsupported format — use original
+        return img_bytes
 
 
 def _detect_doc_type(filename: str) -> str:
-    """Map an uploaded filename to a Section-5 checkbox key."""
     name = filename.lower()
     if any(k in name for k in ["contract", "appointment", "offer", "joining"]):
         return "contract"
@@ -42,299 +49,260 @@ def _detect_doc_type(filename: str) -> str:
     return "other"
 
 
-def generate_salary_complaint_pdf(data: dict) -> bytes:
-    """Generate a filled salary complaint PDF and return raw bytes."""
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_margins(20, 20, 20)
-
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "SALARY COMPLAINT FORM", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, "Government Labour Department - CivicFlow Portal", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(8)
-
-    filed_date = datetime.now(timezone.utc).strftime("%d/%m/%Y")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.cell(0, 6, f"Date Filed: {filed_date}", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(6)
-
-    def section(title: str) -> None:
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.set_fill_color(240, 240, 240)
-        pdf.cell(0, 8, f"  {title}", fill=True, new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(2)
-
-    def row(label: str, value: str) -> None:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(72, 7, f"{label}:", new_x="RIGHT", new_y="TOP")
-        pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 7, _s(value) or "-", new_x="LMARGIN", new_y="NEXT")
-
-    section("EMPLOYER DETAILS")
-    row("Employer / Company Name", data.get("employer_name", ""))
-    row("Employer Address", data.get("employer_address", ""))
-    pdf.ln(4)
-
-    section("EMPLOYMENT DETAILS")
-    row("Date of Joining", data.get("employment_start", ""))
-    row("Last Salary Received Date", data.get("last_salary_date", ""))
-    pdf.ln(4)
-
-    section("SALARY DISPUTE")
-    row("Months of Unpaid Salary", data.get("months_unpaid", ""))
-    row("Total Amount Owed (INR)", data.get("amount_owed", ""))
-    pdf.ln(4)
-
-    section("DECLARATION")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.multi_cell(
-        0, 6,
-        "I hereby declare that the information provided above is true and correct to the best "
-        "of my knowledge. I understand that providing false information is a punishable offence "
-        "under the relevant labour laws.",
-    )
-    pdf.ln(8)
-    pdf.cell(80, 6, "Complainant Signature: _____________", new_x="RIGHT", new_y="TOP")
-    pdf.cell(0, 6, "Date: ______________", new_x="LMARGIN", new_y="NEXT")
-
-    return bytes(pdf.output())
+def _make_watermark_bytes(opacity: float = 0.10) -> bytes | None:
+    """Return PNG bytes of the watermark image at reduced opacity, or None."""
+    try:
+        from PIL import Image as PILImage
+        img = PILImage.open(_WATERMARK_PATH).convert("RGBA")
+        r, g, b, a = img.split()
+        a = a.point(lambda x: int(x * opacity))
+        merged = PILImage.merge("RGBA", (r, g, b, a))
+        buf = BytesIO()
+        merged.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
 
 
-def generate_salary_non_payment_pdf(data: dict) -> bytes:
+def _make_pdf(wm_bytes: bytes | None) -> FPDF:
     """
-    Phase 3 PDF: COMPLAINT - SALARY NON-PAYMENT
-    Fields: complainant_name, employer_name, employer_address,
-            employment_start_date, last_paid_date, months_pending,
-            amount_pending, attempts_made (list), declaration_date
+    Return an FPDF subclass instance whose header() stamps the watermark
+    (centered, full page) on every page as a background layer.
     """
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_margins(20, 20, 20)
+    class _PDF(FPDF):
+        def header(self):
+            if wm_bytes:
+                pw, ph = self.w, self.h
+                side = min(pw, ph) * 0.62   # ~130mm on A4
+                self.image(
+                    BytesIO(wm_bytes),
+                    x=(pw - side) / 2,
+                    y=(ph - side) / 2,
+                    w=side, h=side,
+                )
+            # Always reset cursor to the top margin after the background layer
+            self.set_y(self.t_margin)
 
-    # Header with reference number placeholder
-    ref_num = data.get("ref_number") or "REF-__________"
-    pdf.set_font("Helvetica", "B", 16)
-    # Write ref at top right
-    pdf.set_y(15)
-    pdf.cell(0, 8, _s(ref_num), align="R", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_y(15)
-    pdf.cell(0, 8, "COMPLAINT - SALARY NON-PAYMENT", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, "Government Labour Department - CivicFlow Portal", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(6)
-
-    filed_date = data.get("declaration_date") or datetime.now(timezone.utc).strftime("%d/%m/%Y")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.cell(0, 6, f"Date: {_s(filed_date)}", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(4)
-
-    def section(title: str) -> None:
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.set_fill_color(240, 240, 240)
-        pdf.cell(0, 8, f"  {title}", fill=True, new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(2)
-
-    def row(label: str, value: str) -> None:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(80, 7, f"{label}:", new_x="RIGHT", new_y="TOP")
-        pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 7, _s(value) or "-", new_x="LMARGIN", new_y="NEXT")
-
-    section("COMPLAINANT DETAILS")
-    row("Complainant Name", data.get("complainant_name", ""))
-    pdf.ln(4)
-
-    section("EMPLOYER DETAILS")
-    row("Employer / Company Name", data.get("employer_name", ""))
-    row("Employer Address", data.get("employer_address", ""))
-    pdf.ln(4)
-
-    section("EMPLOYMENT DETAILS")
-    row("Employment Start Date", data.get("employment_start_date", ""))
-    row("Last Salary Paid Date", data.get("last_paid_date", ""))
-    pdf.ln(4)
-
-    section("SALARY DISPUTE")
-    row("Months Pending", str(data.get("months_pending", "")))
-    row("Amount Pending (INR)", str(data.get("amount_pending", "")))
-    pdf.ln(4)
-
-    section("ATTEMPTS MADE TO RESOLVE")
-    attempts = data.get("attempts_made") or []
-    if isinstance(attempts, list):
-        for i, attempt in enumerate(attempts, 1):
-            pdf.set_font("Helvetica", "", 10)
-            pdf.cell(8, 7, f"{i}.", new_x="RIGHT", new_y="TOP")
-            pdf.cell(0, 7, _s(str(attempt)), new_x="LMARGIN", new_y="NEXT")
-    else:
-        pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 7, _s(str(attempts)), new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(4)
-
-    section("DECLARATION")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.multi_cell(
-        0, 6,
-        "I hereby declare that the information provided above is true and correct to the best "
-        "of my knowledge. I understand that providing false information is a punishable offence "
-        "under the relevant labour laws.",
-    )
-    pdf.ln(8)
-    pdf.cell(80, 6, "Complainant Signature: _____________", new_x="RIGHT", new_y="TOP")
-    pdf.cell(0, 6, f"Date: {_s(filed_date)}", new_x="LMARGIN", new_y="NEXT")
-
-    return bytes(pdf.output())
-
-
-def generate_salary_complaint(form_data: dict, signature_b64: str = None, supporting_docs: list = None) -> str:
-    """
-    Professional A4 salary complaint form for the Office of the Labour Commissioner.
-    Returns base64-encoded PDF string.
-    Layout: header (logo + title + ref), 6 numbered sections, declaration.
-    """
-    year = datetime.now(timezone.utc).year
-    ref_num = _s(form_data.get("ref_number") or f"REF-{year}-{random.randint(10000, 99999)}")
-    decl_date = _s(form_data.get("declaration_date") or datetime.now(timezone.utc).strftime("%d/%m/%Y"))
-
-    pdf = FPDF(orientation="P", unit="mm", format="A4")
-    pdf.add_page()
-    pdf.set_margins(20, 15, 20)
+    pdf = _PDF(orientation="P", unit="mm", format="A4")
+    pdf.set_margins(25, 20, 25)
     pdf.set_auto_page_break(auto=True, margin=20)
+    return pdf
 
-    W = 170  # usable width (210 - 20 left - 20 right)
 
-    # ── HEADER ────────────────────────────────────────────────────────────────
-    # Logo placeholder (rectangle, top-left)
-    pdf.set_xy(20, 15)
-    pdf.set_fill_color(210, 218, 235)
-    pdf.set_draw_color(100, 120, 180)
-    pdf.rect(20, 15, 24, 22, style="FD")
-    pdf.set_xy(20, 20)
-    pdf.set_font("Helvetica", "B", 6)
-    pdf.cell(24, 4, "GOVT", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_xy(20, 25)
-    pdf.cell(24, 4, "SEAL", align="C")
+# ── Main complaint PDF ────────────────────────────────────────────────────────
 
-    # Ref No + Date (top-right)
-    pdf.set_font("Helvetica", "", 8)
-    pdf.set_xy(20, 15)
-    pdf.cell(W, 5, f"Ref No: {ref_num}", align="R", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_xy(20, 21)
-    pdf.cell(W, 5, f"Date: {decl_date}", align="R")
+def generate_salary_complaint(
+    form_data: dict,
+    signature_b64: str = None,
+    supporting_docs: list = None,
+) -> str:
+    """
+    Formal letter-format complaint to the Office of the Labour Commissioner.
+    Design: Indian emblem, Times New Roman, watermark, letter prose, no boxes.
+    Returns base64-encoded PDF string.
+    """
+    year     = datetime.now(timezone.utc).year
+    ref_num  = _s(form_data.get("ref_number") or f"LC/{year}/{random.randint(10000, 99999)}")
+    decl_date = _s(
+        form_data.get("declaration_date")
+        or datetime.now(timezone.utc).strftime("%d %B %Y")
+    )
 
-    # Centred title
-    pdf.set_xy(20, 17)
-    pdf.set_font("Helvetica", "B", 13)
+    wm_bytes = _make_watermark_bytes(0.10)
+    pdf = _make_pdf(wm_bytes)
+
+    W = 160  # usable width: 210 - 25 left - 25 right
+
+    # ── PAGE 1 ─────────────────────────────────────────────────────────────────
+    pdf.add_page()
+
+    # ── Emblem (centered, top) ─────────────────────────────────────────────────
+    EW, EH = 22, 28
+    try:
+        pdf.image(_EMBLEM_PATH, x=(210 - EW) / 2, y=14, w=EW, h=EH)
+    except Exception:
+        pass
+
+    pdf.set_y(14 + EH + 2)
+
+    # ── Letterhead text ────────────────────────────────────────────────────────
+    pdf.set_font("Times", "", 8)
+    pdf.cell(W, 4, "Government of India", align="C", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.set_font("Times", "B", 13)
     pdf.cell(W, 7, "OFFICE OF THE LABOUR COMMISSIONER", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_xy(20, 25)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(W, 5, "COMPLAINT UNDER THE PAYMENT OF WAGES ACT", align="C")
 
-    # Divider line
-    pdf.set_y(40)
-    pdf.set_draw_color(30, 60, 160)
-    pdf.line(20, 40, 190, 40)
+    pdf.set_font("Times", "I", 9)
+    pdf.cell(W, 5, "Complaint under the Payment of Wages Act, 1936", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    # Double rule
+    yl = pdf.get_y()
+    pdf.set_draw_color(0, 0, 0)
+    pdf.line(25, yl, 185, yl)
+    pdf.line(25, yl + 1.5, 185, yl + 1.5)
+    pdf.ln(6)
+
+    # Ref / Date row
+    pdf.set_font("Times", "", 10)
+    pdf.cell(W / 2, 5, f"Ref. No.: {ref_num}", new_x="RIGHT", new_y="TOP")
+    pdf.cell(W / 2, 5, f"Date: {decl_date}", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(6)
+
+    # ── Addressee ──────────────────────────────────────────────────────────────
+    pdf.set_font("Times", "", 11)
+    pdf.multi_cell(
+        W, 6,
+        "To,\nThe Labour Commissioner,\nGovernment of India.",
+        new_x="LMARGIN", new_y="NEXT",
+    )
     pdf.ln(5)
 
-    # ── Section helpers ────────────────────────────────────────────────────────
-    def section(label: str) -> None:
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_fill_color(215, 225, 245)
-        pdf.set_draw_color(60, 90, 160)
-        pdf.cell(W, 7, _s(f"  {label}"), fill=True, border=1, new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(1)
-
-    def row(label: str, value: str, lw: int = 68) -> None:
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.cell(lw, 6, f"{label}:", new_x="RIGHT", new_y="TOP")
-        pdf.set_font("Helvetica", "", 9)
-        pdf.cell(W - lw, 6, _s(value) or "-", new_x="LMARGIN", new_y="NEXT")
-
-    def checkbox(label: str, checked: bool = False) -> None:
-        mark = "[X]" if checked else "[ ]"
-        pdf.set_font("Helvetica", "", 9)
-        pdf.cell(9, 6, mark, new_x="RIGHT", new_y="TOP")
-        pdf.cell(W - 9, 6, label, new_x="LMARGIN", new_y="NEXT")
-
-    # ── SECTION 1: COMPLAINANT DETAILS ────────────────────────────────────────
-    section("Section 1 - Complainant Details")
-    row("Full Name", form_data.get("complainant_name", ""))
-    row("Address", form_data.get("complainant_address", ""))
-    row("Phone", form_data.get("complainant_phone", ""))
-    row("Email", form_data.get("complainant_email", ""))
-    pdf.ln(3)
-
-    # ── SECTION 2: EMPLOYER DETAILS ───────────────────────────────────────────
-    section("Section 2 - Employer Details")
-    row("Employer / Company Name", form_data.get("employer_name", ""))
-    row("Employer Address", form_data.get("employer_address", ""))
-    row("Nature of Business", form_data.get("nature_of_business", ""))
-    pdf.ln(3)
-
-    # ── SECTION 3: EMPLOYMENT DETAILS ─────────────────────────────────────────
-    section("Section 3 - Employment Details")
-    row("Date of Joining", form_data.get("employment_start_date", ""))
-    row("Designation / Post", form_data.get("designation", ""))
-    row("Last Date Salary Paid", form_data.get("last_paid_date", ""))
-    row("Months of Pending Salary", str(form_data.get("months_pending", "")))
-    row("Total Amount Pending (INR)", str(form_data.get("amount_pending", "")))
-    pdf.ln(3)
-
-    # ── SECTION 4: STEPS ALREADY TAKEN ────────────────────────────────────────
-    section("Section 4 - Steps Already Taken")
-    attempts = str(form_data.get("attempts_made") or "")
-    al = attempts.lower()
-    checkbox("Written notice sent to employer",          "written" in al or "notice" in al)
-    checkbox("Verbal complaint to HR / Management",       "verbal" in al or "hr" in al)
-    checkbox("Complaint raised with HR Department",       "hr department" in al or "hr complaint" in al)
-    checkbox("Approached Labour Welfare Officer",         "labour welfare" in al or "welfare officer" in al)
-    checkbox("Complaint filed with Trade Union",          "trade union" in al or "union" in al)
-    pdf.ln(1)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(W, 5, "Response received from employer:", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.multi_cell(W, 5, _s(attempts) or "No response received.", border=1)
-    pdf.ln(3)
-
-    # ── SECTION 5: DOCUMENTS ATTACHED ─────────────────────────────────────────
-    # Auto-tick based on filenames of uploaded supporting documents
-    doc_types = {_detect_doc_type(d.get("filename", "")) for d in (supporting_docs or [])}
-    section("Section 5 - Documents Attached")
-    checkbox("Employment Contract / Appointment Letter", "contract"        in doc_types)
-    checkbox("Salary Slips / Pay Stubs",                "salary_slip"     in doc_types)
-    checkbox("Bank Statements showing salary credits",  "bank_statement"  in doc_types)
-    checkbox("Written Notice Copy (if sent)",           "notice"          in doc_types)
-    checkbox("Email Correspondence with Employer",      "email"           in doc_types)
-    pdf.ln(3)
-
-    # ── SECTION 6: DECLARATION ────────────────────────────────────────────────
-    section("Section 6 - Declaration")
-    pdf.set_font("Helvetica", "", 9)
+    # ── Subject ───────────────────────────────────────────────────────────────
+    employer = _s(form_data.get("employer_name", "the concerned employer"))
+    pdf.set_font("Times", "B", 11)
     pdf.multi_cell(
-        W, 5,
-        "I declare that the above information is true to the best of my knowledge and belief. "
-        "I understand that providing false information is a punishable offence under the relevant labour laws.",
+        W, 6,
+        f"Subject: Complaint Regarding Non-Payment of Salary by {employer}",
+        new_x="LMARGIN", new_y="NEXT",
     )
-    pdf.ln(8)
-    pdf.set_font("Helvetica", "", 9)
-    half = W // 2
+    pdf.ln(4)
+
+    # ── Salutation ────────────────────────────────────────────────────────────
+    pdf.set_font("Times", "", 11)
+    pdf.cell(W, 6, "Respected Sir / Madam,", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    # ── Extract fields ────────────────────────────────────────────────────────
+    name        = _s(form_data.get("complainant_name",     "_______________"))
+    address     = _s(form_data.get("complainant_address",  "_______________"))
+    phone       = _s(form_data.get("complainant_phone",    "_______________"))
+    email       = _s(form_data.get("complainant_email",    ""))
+    emp_address = _s(form_data.get("employer_address",     "_______________"))
+    business    = _s(form_data.get("nature_of_business",   ""))
+    joined      = _s(form_data.get("employment_start_date","_______________"))
+    designation = _s(form_data.get("designation",          "_______________"))
+    last_paid   = _s(form_data.get("last_paid_date",       "_______________"))
+    months_pend = _s(str(form_data.get("months_pending",  "___")))
+    amount_pend = _s(str(form_data.get("amount_pending",  "_______________")))
+    attempts    = _s(str(form_data.get("attempts_made",    "") or ""))
+
+    contact = phone + (f", {email}" if email else "")
+    biz_str = f", engaged in {business}," if business else ","
+
+    # ── Body paragraphs ───────────────────────────────────────────────────────
+    # Each part is either a plain str (static text) or (str, "B") for bold user data.
+    def inline_para(*parts) -> None:
+        """Write a paragraph with mixed normal/bold segments, then a blank line."""
+        pdf.set_x(pdf.l_margin)
+        for part in parts:
+            if isinstance(part, tuple):
+                text, style = part
+                pdf.set_font("Times", style, 11)
+            else:
+                text = part
+                pdf.set_font("Times", "", 11)
+            pdf.write(6, _s(text))
+        pdf.ln(6)
+        pdf.ln(3)
+
+    inline_para(
+        "    I, ", (name, "B"), ", residing at ", (address, "B"),
+        ", contact: ", (contact, "B"),
+        ", humbly submit this complaint before your esteemed office and "
+        "respectfully request your kind intervention in the matter described below.",
+    )
+
+    inline_para(
+        "    I was employed at ", (employer, "B"),
+        ", located at ", (emp_address, "B"),
+        (f", engaged in {business}," if business else ","),
+        " having joined the organisation on ", (joined, "B"),
+        " and serving in the capacity of ", (designation, "B"), ".",
+    )
+
+    inline_para(
+        "    My employer has failed to pay my salary for ", (months_pend, "B"),
+        " month(s). The last salary payment received by me was on ", (last_paid, "B"),
+        ". The total outstanding amount due is INR ", (amount_pend, "B"),
+        "/- (Rupees ", (amount_pend, "B"), " only).",
+    )
+
+    if attempts:
+        inline_para(
+            "    I have made the following attempts to resolve this matter, "
+            "however no satisfactory response has been received:"
+        )
+        attempt_list = [
+            a.strip()
+            for a in attempts.replace(";", "\n").split("\n")
+            if a.strip()
+        ] or [attempts]
+        for i, att in enumerate(attempt_list[:6], 1):
+            pdf.set_font("Times", "", 11)
+            pdf.cell(8,     6, f"  {i}.", new_x="RIGHT", new_y="TOP")
+            pdf.set_font("Times", "B", 11)
+            pdf.cell(W - 8, 6, _s(att),  new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(3)
+    else:
+        inline_para(
+            "    Despite making repeated requests both verbally and in writing, "
+            "the employer has not responded or made any payment towards the dues."
+        )
+
+    inline_para(
+        "    In light of the above, I earnestly request your good office to take "
+        "cognizance of this complaint and direct my employer to clear all pending "
+        "salary dues forthwith. I shall be grateful for your timely intervention."
+    )
+
+    # Enclosures list
+    doc_labels = {
+        "contract":       "Employment Contract / Appointment Letter",
+        "salary_slip":    "Salary Slips / Pay Stubs",
+        "bank_statement": "Bank Statement showing salary credits",
+        "notice":         "Copy of written notice sent to employer",
+        "email":          "Email correspondence with employer",
+    }
+    doc_types   = {_detect_doc_type(d.get("filename", "")) for d in (supporting_docs or [])}
+    enc_labels  = [v for k, v in doc_labels.items() if k in doc_types]
+    if supporting_docs:
+        pdf.set_font("Times", "", 11)
+        pdf.cell(W, 6, "Enclosed herewith:", new_x="LMARGIN", new_y="NEXT")
+        for i, lbl in enumerate(enc_labels or ["Supporting documents (see attached)"], 1):
+            pdf.cell(8,     6, f"  {i}.", new_x="RIGHT", new_y="TOP")
+            pdf.cell(W - 8, 6, lbl,       new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(4)
+
+    # ── Closing ───────────────────────────────────────────────────────────────
+    pdf.set_font("Times", "", 11)
+    pdf.cell(W, 6, "Yours faithfully,", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(14)
+
+    # ── Signature ─────────────────────────────────────────────────────────────
     sig_y = pdf.get_y()
-    pdf.cell(half, 6, "Complainant Signature: ___________________", new_x="RIGHT", new_y="TOP")
-    pdf.cell(W - half, 6, f"Date: {decl_date}", new_x="LMARGIN", new_y="NEXT")
     if signature_b64:
         try:
             decoded = base64.b64decode(signature_b64)
-            if len(decoded) <= 1_200_000:  # MED-3: skip if > 1.2 MB decoded to cap Pillow memory
+            if len(decoded) <= 1_200_000:
                 raw = _orient_image(decoded)
-                pdf.image(BytesIO(raw), x=65, y=sig_y - 1, w=48, h=10)
+                pdf.image(BytesIO(raw), x=25, y=sig_y, w=55, h=16)
+                pdf.set_y(sig_y + 16)
         except Exception:
-            pass  # bad image data — leave blank line as-is
-    pdf.ln(6)
-    pdf.cell(W, 5, "Place: _______________________________", new_x="LMARGIN", new_y="NEXT")
+            pass
 
-    # ── ATTACHMENT PAGES ──────────────────────────────────────────────────────
-    MAX_IMAGE_BYTES = 700_000  # ~700 KB decoded — skip larger images to keep generation fast
+    # Signature underline + name + place
+    sig_line_y = pdf.get_y()
+    pdf.set_draw_color(0, 0, 0)
+    pdf.line(25, sig_line_y, 110, sig_line_y)
+    pdf.ln(2)
+    pdf.set_font("Times", "B", 11)
+    pdf.cell(W, 6, name, new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Times", "", 11)
+    pdf.cell(W, 6, f"Place: {address}", new_x="LMARGIN", new_y="NEXT")
+
+    # ── Attachment pages (image docs) ─────────────────────────────────────────
+    MAX_IMG = 700_000
     for doc in (supporting_docs or []):
         file_b64  = doc.get("file_b64", "")
         filename  = _s(doc.get("filename", "Document"))[:100]
@@ -345,79 +313,113 @@ def generate_salary_complaint(form_data: dict, signature_b64: str = None, suppor
             file_bytes = base64.b64decode(file_b64)
         except Exception:
             continue
-        if "pdf" not in mime_type and not filename.lower().endswith(".pdf"):
-            # Image attachment — add as a new page
-            pdf.add_page()
-            pdf.set_font("Helvetica", "B", 10)
-            pdf.set_draw_color(60, 90, 160)
-            pdf.cell(W, 8, f"Attachment: {filename}", border="B", new_x="LMARGIN", new_y="NEXT")
-            pdf.ln(2)
-            if len(file_bytes) > MAX_IMAGE_BYTES:
-                pdf.set_font("Helvetica", "", 9)
-                pdf.cell(W, 6, f"[File too large to embed — {len(file_bytes) // 1024} KB. Attach separately.]")
-                continue
-            try:
-                corrected = _orient_image(file_bytes)
-                pdf.image(BytesIO(corrected), x=20, y=pdf.get_y(), w=170)
-            except Exception:
-                pdf.set_font("Helvetica", "", 9)
-                pdf.cell(W, 6, "[Image could not be rendered]")
+        if "pdf" in mime_type or filename.lower().endswith(".pdf"):
+            continue  # PDF attachments merged later via pypdf
+        pdf.add_page()
+        pdf.set_font("Times", "B", 10)
+        pdf.set_draw_color(0, 0, 0)
+        pdf.cell(W, 8, f"Enclosure: {filename}", border="B", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(3)
+        if len(file_bytes) > MAX_IMG:
+            pdf.set_font("Times", "", 9)
+            pdf.cell(W, 6, f"[File too large to embed — {len(file_bytes)//1024} KB. Attach separately.]")
+            continue
+        try:
+            corrected = _orient_image(file_bytes)
+            pdf.image(BytesIO(corrected), x=25, y=pdf.get_y(), w=160)
+        except Exception:
+            pdf.set_font("Times", "", 9)
+            pdf.cell(W, 6, "[Image could not be rendered]")
 
-    main_pdf_bytes = bytes(pdf.output())
+    main_bytes = bytes(pdf.output())
 
-    # Merge PDF attachments using pypdf
+    # Merge PDF attachments via pypdf
     pdf_docs = [
-        doc for doc in (supporting_docs or [])
-        if doc.get("file_b64")
-        and ("pdf" in doc.get("mime_type", "").lower() or doc.get("filename", "").lower().endswith(".pdf"))
+        d for d in (supporting_docs or [])
+        if d.get("file_b64")
+        and ("pdf" in d.get("mime_type", "").lower() or d.get("filename", "").lower().endswith(".pdf"))
     ]
     if pdf_docs:
         try:
             from pypdf import PdfWriter, PdfReader
             writer = PdfWriter()
-            for page in PdfReader(BytesIO(main_pdf_bytes)).pages:
+            for page in PdfReader(BytesIO(main_bytes)).pages:
                 writer.add_page(page)
             for doc in pdf_docs:
                 try:
-                    att_bytes = base64.b64decode(doc["file_b64"])
-                    for page in PdfReader(BytesIO(att_bytes)).pages:
+                    att = base64.b64decode(doc["file_b64"])
+                    for page in PdfReader(BytesIO(att)).pages:
                         writer.add_page(page)
                 except Exception:
-                    pass  # skip unreadable PDF attachment
+                    pass
             out = BytesIO()
             writer.write(out)
             return base64.b64encode(out.getvalue()).decode()
         except Exception:
-            pass  # pypdf unavailable — return without PDF attachments
+            pass
 
-    return base64.b64encode(main_pdf_bytes).decode()
+    return base64.b64encode(main_bytes).decode()
 
 
-def _append_signature_and_docs(main_pdf_bytes: bytes, signature_b64: str = None, supporting_docs: list = None) -> bytes:
-    """Append signature page + supporting docs to any PDF (used by non-salary fallback)."""
-    MAX_IMAGE_BYTES = 700_000
-    extra = FPDF()
+# ── Legacy helpers (kept for generic/non-salary forms) ────────────────────────
+
+def generate_salary_complaint_pdf(data: dict) -> bytes:
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_margins(20, 20, 20)
+    pdf.set_font("Times", "B", 16)
+    pdf.cell(0, 10, "SALARY COMPLAINT FORM", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Times", "", 10)
+    pdf.cell(0, 6, "Government Labour Department", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(8)
+    filed_date = datetime.now(timezone.utc).strftime("%d/%m/%Y")
+    pdf.set_font("Times", "", 9)
+    pdf.cell(0, 6, f"Date Filed: {filed_date}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(6)
+    def row(label: str, value: str) -> None:
+        pdf.set_font("Times", "B", 10)
+        pdf.cell(72, 7, f"{label}:", new_x="RIGHT", new_y="TOP")
+        pdf.set_font("Times", "", 10)
+        pdf.cell(0, 7, _s(value) or "-", new_x="LMARGIN", new_y="NEXT")
+    row("Employer / Company Name", data.get("employer_name", ""))
+    row("Employer Address",        data.get("employer_address", ""))
+    row("Date of Joining",         data.get("employment_start", ""))
+    row("Last Salary Received",    data.get("last_salary_date", ""))
+    row("Months of Unpaid Salary", data.get("months_unpaid", ""))
+    row("Total Amount Owed (INR)", data.get("amount_owed", ""))
+    pdf.ln(8)
+    pdf.cell(80, 6, "Complainant Signature: _____________", new_x="RIGHT", new_y="TOP")
+    pdf.cell(0,  6, "Date: ______________", new_x="LMARGIN", new_y="NEXT")
+    return bytes(pdf.output())
+
+
+def _append_signature_and_docs(
+    main_pdf_bytes: bytes,
+    signature_b64: str = None,
+    supporting_docs: list = None,
+) -> bytes:
+    """Append signature + supporting docs to any non-salary PDF, with watermark."""
+    MAX_IMG = 700_000
+    wm_bytes = _make_watermark_bytes(0.10)
+    extra = _make_pdf(wm_bytes)
     extra.set_margins(20, 20, 20)
     W = extra.w - 40
+    added_pages = False
 
-    added_image_pages = False
-
-    # Signature extra page (non-salary forms have no inline signature line)
     if signature_b64:
         try:
             raw = base64.b64decode(signature_b64)
-            if len(raw) <= MAX_IMAGE_BYTES:
+            if len(raw) <= MAX_IMG:
                 corrected = _orient_image(raw)
                 extra.add_page()
-                extra.set_font("Helvetica", "B", 10)
+                extra.set_font("Times", "B", 10)
                 extra.cell(W, 8, "Complainant Signature", border="B", new_x="LMARGIN", new_y="NEXT")
                 extra.ln(4)
                 extra.image(BytesIO(corrected), x=20, y=extra.get_y(), w=80, h=20)
-                added_image_pages = True
+                added_pages = True
         except Exception:
             pass
 
-    # Supporting document image pages
     for doc in (supporting_docs or []):
         file_b64  = doc.get("file_b64", "")
         filename  = _s(doc.get("filename", "Document"))[:100]
@@ -428,44 +430,41 @@ def _append_signature_and_docs(main_pdf_bytes: bytes, signature_b64: str = None,
             file_bytes = base64.b64decode(file_b64)
         except Exception:
             continue
-        if "pdf" not in mime_type and not filename.lower().endswith(".pdf"):
-            extra.add_page()
-            extra.set_font("Helvetica", "B", 10)
-            extra.cell(W, 8, f"Attachment: {filename}", border="B", new_x="LMARGIN", new_y="NEXT")
-            extra.ln(2)
-            if len(file_bytes) > MAX_IMAGE_BYTES:
-                extra.set_font("Helvetica", "", 9)
-                extra.cell(W, 6, f"[File too large to embed — {len(file_bytes) // 1024} KB. Attach separately.]")
-            else:
-                try:
-                    corrected = _orient_image(file_bytes)
-                    extra.image(BytesIO(corrected), x=20, y=extra.get_y(), w=170)
-                    added_image_pages = True
-                except Exception:
-                    extra.set_font("Helvetica", "", 9)
-                    extra.cell(W, 6, "[Image could not be rendered]")
+        if "pdf" in mime_type or filename.lower().endswith(".pdf"):
+            continue
+        extra.add_page()
+        extra.set_font("Times", "B", 10)
+        extra.cell(W, 8, f"Enclosure: {filename}", border="B", new_x="LMARGIN", new_y="NEXT")
+        extra.ln(2)
+        if len(file_bytes) > MAX_IMG:
+            extra.set_font("Times", "", 9)
+            extra.cell(W, 6, f"[File too large — {len(file_bytes)//1024} KB. Attach separately.]")
+        else:
+            try:
+                corrected = _orient_image(file_bytes)
+                extra.image(BytesIO(corrected), x=20, y=extra.get_y(), w=170)
+                added_pages = True
+            except Exception:
+                extra.set_font("Times", "", 9)
+                extra.cell(W, 6, "[Image could not be rendered]")
 
-    # Merge via pypdf
     try:
         from pypdf import PdfWriter, PdfReader
         writer = PdfWriter()
         for page in PdfReader(BytesIO(main_pdf_bytes)).pages:
             writer.add_page(page)
-        if added_image_pages:
-            extra_bytes = bytes(extra.output())
-            for page in PdfReader(BytesIO(extra_bytes)).pages:
+        if added_pages:
+            for page in PdfReader(BytesIO(bytes(extra.output()))).pages:
                 writer.add_page(page)
-        # Append PDF attachments
         for doc in (supporting_docs or []):
-            file_b64  = doc.get("file_b64", "")
-            mime_type = doc.get("mime_type", "").lower()
-            filename  = doc.get("filename", "")
-            if not file_b64:
+            if not doc.get("file_b64"):
                 continue
-            if "pdf" in mime_type or filename.lower().endswith(".pdf"):
+            mt = doc.get("mime_type", "").lower()
+            fn = doc.get("filename", "")
+            if "pdf" in mt or fn.lower().endswith(".pdf"):
                 try:
-                    att_bytes = base64.b64decode(file_b64)
-                    for page in PdfReader(BytesIO(att_bytes)).pages:
+                    att = base64.b64decode(doc["file_b64"])
+                    for page in PdfReader(BytesIO(att)).pages:
                         writer.add_page(page)
                 except Exception:
                     pass
@@ -473,11 +472,15 @@ def _append_signature_and_docs(main_pdf_bytes: bytes, signature_b64: str = None,
         writer.write(out)
         return out.getvalue()
     except Exception:
-        return main_pdf_bytes  # pypdf unavailable
+        return main_pdf_bytes
 
 
-def generate_pdf_b64(form_name: str, data: dict, signature_b64: str = None, supporting_docs: list = None) -> str:
-    """Generate a filled PDF and return it as a base64 string."""
+def generate_pdf_b64(
+    form_name: str,
+    data: dict,
+    signature_b64: str = None,
+    supporting_docs: list = None,
+) -> str:
     if "salary" in form_name.lower():
         return generate_salary_complaint(data, signature_b64=signature_b64, supporting_docs=supporting_docs)
     pdf_bytes = generate_pdf("", form_name, data)
@@ -487,39 +490,27 @@ def generate_pdf_b64(form_name: str, data: dict, signature_b64: str = None, supp
 
 
 def generate_pdf(category: str, subcategory: str, data: dict) -> bytes:
-    """Route to the right PDF template based on category/subcategory."""
     if "labor" in category.lower() and "salary" in subcategory.lower():
         return generate_salary_complaint_pdf(data)
-
-    # Generic fallback
-    pdf = FPDF()
+    wm_bytes = _make_watermark_bytes(0.10)
+    pdf = _make_pdf(wm_bytes)
     pdf.add_page()
-    pdf.set_margins(20, 20, 20)
-    filed_date = datetime.now(timezone.utc).strftime("%d/%m/%Y")
-
-    cat_label = _s(category.replace("_", " ").title())
-    sub_label = _s(subcategory.replace("_", " ").title())
-
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, f"{cat_label} - {sub_label}", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.cell(0, 6, f"Filed via CivicFlow  |  Date: {filed_date}", align="C", new_x="LMARGIN", new_y="NEXT")
+    W = 160
+    filed_date = datetime.now(timezone.utc).strftime("%d %B %Y")
+    cat_label  = _s(category.replace("_", " ").title())
+    sub_label  = _s(subcategory.replace("_", " ").title())
+    pdf.set_font("Times", "B", 14)
+    pdf.cell(W, 10, f"{cat_label} - {sub_label}", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Times", "", 9)
+    pdf.cell(W, 6, f"Date: {filed_date}", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(8)
-
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_fill_color(240, 240, 240)
-    pdf.cell(0, 8, "  COMPLAINT DETAILS", fill=True, new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(2)
-
     for key, value in data.items():
-        # Sanitize: reject non-string types (dicts/lists → skip), cap length at 500 chars
         if not isinstance(value, (str, int, float)):
             continue
-        safe_value = _s(str(value))[:500] or "-"
-        label = key.replace("_", " ").title()
-        pdf.set_font("Helvetica", "B", 10)
+        safe_val = _s(str(value))[:500] or "-"
+        label    = key.replace("_", " ").title()
+        pdf.set_font("Times", "B", 10)
         pdf.cell(72, 7, f"{label}:", new_x="RIGHT", new_y="TOP")
-        pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 7, safe_value, new_x="LMARGIN", new_y="NEXT")
-
+        pdf.set_font("Times", "", 10)
+        pdf.cell(0,  7, safe_val, new_x="LMARGIN", new_y="NEXT")
     return bytes(pdf.output())

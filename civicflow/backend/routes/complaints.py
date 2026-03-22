@@ -439,6 +439,29 @@ def update_status(complaint_id: str):
 
 
 # ---------------------------------------------------------------------------
+# DELETE /complaints/<id>  — only allowed when status is "pending"
+# ---------------------------------------------------------------------------
+
+@complaints_bp.route("/<complaint_id>", methods=["DELETE"])
+@jwt_required
+def delete_complaint(complaint_id: str):
+    try:
+        oid = ObjectId(complaint_id)
+    except Exception:
+        return jsonify({"error": "invalid id"}), 400
+
+    complaint = db.complaints.find_one({"_id": oid, "user_id": g.user["_id"]})
+    if not complaint:
+        return jsonify({"error": "not found"}), 404
+
+    if complaint.get("status") != "pending":
+        return jsonify({"error": "only pending complaints can be deleted"}), 403
+
+    db.complaints.delete_one({"_id": oid, "user_id": g.user["_id"]})
+    return jsonify({"ok": True}), 200
+
+
+# ---------------------------------------------------------------------------
 # POST /complaints/<id>/upload-doc
 # ---------------------------------------------------------------------------
 

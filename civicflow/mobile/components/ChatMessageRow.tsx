@@ -1,10 +1,11 @@
 /**
  * ChatMessageRow
  * Renders a single message in the AI chat screen.
- * Exported types: Message (used by chat screen state)
+ * Design: Nivedan / Sovereign Ledger — Navy + Saffron palette.
  */
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../constants/theme";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -43,6 +44,8 @@ export default function ChatMessageRow({
   uploading?: boolean;
 }) {
   switch (msg.type) {
+
+    // ── User bubble ────────────────────────────────────────────────────────
     case "user":
       return (
         <View style={s.userBubbleWrap}>
@@ -52,19 +55,21 @@ export default function ChatMessageRow({
         </View>
       );
 
+    // ── Agent bubble ───────────────────────────────────────────────────────
     case "agent":
       return (
         <View style={s.agentBubbleWrap}>
           <View style={s.agentLabelRow}>
-            <View style={[s.agentDot, { backgroundColor: theme.primary }]} />
-            <Text style={[s.agentLabel, { color: theme.primary }]}>CivicFlow AI</Text>
+            <View style={[s.agentDot, { backgroundColor: theme.secondary }]} />
+            <Text style={[s.agentLabel, { color: theme.secondary }]}>Nivedan AI</Text>
           </View>
-          <View style={[s.agentBubble, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={[s.agentBubble, { backgroundColor: theme.surface }]}>
             <Text style={[s.agentText, { color: theme.text }]}>{msg.text}</Text>
           </View>
         </View>
       );
 
+    // ── Action buttons ─────────────────────────────────────────────────────
     case "action_buttons":
       return (
         <View style={s.actionRowWrap}>
@@ -76,10 +81,11 @@ export default function ChatMessageRow({
                 style={[
                   s.actionBtn,
                   isPrimary
-                    ? { backgroundColor: theme.primary }
-                    : { borderColor: theme.border, borderWidth: 1 },
+                    ? { backgroundColor: theme.secondary }
+                    : { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.outlineVariant },
                 ]}
                 onPress={() => onActionBtn(btn)}
+                activeOpacity={0.8}
               >
                 <Text style={[s.actionBtnText, { color: isPrimary ? "#fff" : theme.text }]}>
                   {btn}
@@ -90,45 +96,56 @@ export default function ChatMessageRow({
         </View>
       );
 
+    // ── Status update card ─────────────────────────────────────────────────
     case "status_update":
       return (
-        <View style={[s.statusCard, { backgroundColor: "#22c55e18", borderColor: "#22c55e" }]}>
-          <Text style={s.statusIcon}>✅</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[s.statusTitle, { color: "#16a34a" }]}>Complaint Filed!</Text>
-            <Text style={[s.statusLabel, { color: "#16a34a" }]}>{msg.label}</Text>
+        <View style={[s.statusCard, { backgroundColor: "#22C55E18" }]}>
+          <View style={[s.statusStrip, { backgroundColor: "#22C55E" }]} />
+          <View style={s.statusInner}>
+            <View style={[s.statusIconWrap, { backgroundColor: "#22C55E22" }]}>
+              <Ionicons name="checkmark-circle" size={22} color="#16A34A" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.statusTitle, { color: "#16A34A" }]}>Complaint Filed!</Text>
+              <Text style={[s.statusLabel, { color: "#16A34A" }]}>{msg.label}</Text>
+            </View>
           </View>
         </View>
       );
 
+    // ── PDF card ───────────────────────────────────────────────────────────
     case "pdf_card": {
       const isBlank = msg.label === "blank_form";
       return (
         <View style={s.agentBubbleWrap}>
-          <View style={[s.pdfCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={s.pdfCardTop}>
-              <Text style={s.pdfIcon}>📄</Text>
+          <View style={[s.pdfCard, { backgroundColor: theme.surface }]}>
+            <View style={[s.pdfCardTop, { gap: 10 }]}>
+              <View style={[s.pdfIconWrap, { backgroundColor: theme.primaryContainer }]}>
+                <Ionicons name="document-text" size={22} color={theme.primary} />
+              </View>
               <View style={{ flex: 1 }}>
-                <Text style={[s.pdfName, { color: theme.text }]} numberOfLines={1}>
+                <Text style={[s.pdfName, { color: theme.primary }]} numberOfLines={1}>
                   {msg.filename}
                 </Text>
                 <Text style={[s.pdfSub, { color: theme.subtext }]}>
-                  {isBlank ? "Blank form — preview only" : "Filled complaint form"}
+                  {isBlank ? "Blank form (preview only)" : "Filled complaint form"}
                 </Text>
               </View>
             </View>
             <View style={s.pdfBtnRow}>
               <TouchableOpacity
-                style={[s.pdfBtn, { borderColor: theme.border, borderWidth: 1 }]}
+                style={[s.pdfBtnOutline, { borderColor: theme.outlineVariant }]}
                 onPress={() => onViewPdf(msg.filename, msg.pdfBase64)}
               >
-                <Text style={[s.pdfBtnText, { color: theme.text }]}>View PDF</Text>
+                <Ionicons name="eye-outline" size={14} color={theme.primary} />
+                <Text style={[s.pdfBtnText, { color: theme.primary }]}>View PDF</Text>
               </TouchableOpacity>
               {!isBlank && (
                 <TouchableOpacity
-                  style={[s.pdfBtn, { backgroundColor: theme.primary }]}
+                  style={[s.pdfBtnFilled, { backgroundColor: theme.secondary }]}
                   onPress={() => onActionBtn("yes, submit it")}
                 >
+                  <Ionicons name="cloud-upload-outline" size={14} color="#fff" />
                   <Text style={[s.pdfBtnText, { color: "#fff" }]}>Submit</Text>
                 </TouchableOpacity>
               )}
@@ -138,92 +155,112 @@ export default function ChatMessageRow({
       );
     }
 
+    // ── Signature request ──────────────────────────────────────────────────
     case "signature_request":
       return (
         <View style={s.agentBubbleWrap}>
-          <View style={[s.docCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={s.docCardIcon}>✍️</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.docCardTitle, { color: theme.text }]}>Signature Required</Text>
-              <Text style={[s.docCardSub, { color: theme.subtext }]}>
-                {uploading ? "Uploading signature…" : "Upload a photo of your handwritten signature"}
-              </Text>
+          <View style={[s.docCard, { backgroundColor: theme.surface }]}>
+            <View style={s.docCardHeader}>
+              <View style={[s.docIconWrap, { backgroundColor: theme.secondaryContainer }]}>
+                <Ionicons name="create-outline" size={20} color={theme.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.docCardTitle, { color: theme.primary }]}>Signature Required</Text>
+                <Text style={[s.docCardSub, { color: theme.subtext }]}>
+                  {uploading ? "Uploading signature…" : "Upload a photo of your handwritten signature"}
+                </Text>
+              </View>
             </View>
             <View style={s.docBtnRow}>
               <TouchableOpacity
-                style={[s.docBtn, { backgroundColor: theme.primary, opacity: uploading ? 0.5 : 1 }]}
+                style={[s.docBtn, { backgroundColor: theme.secondary, opacity: uploading ? 0.5 : 1 }]}
                 onPress={() => onSignatureUpload?.()}
                 disabled={uploading}
               >
-                <Text style={s.docBtnTextWhite}>{uploading ? "Uploading…" : "📷 Upload"}</Text>
+                <Ionicons name="camera-outline" size={14} color="#fff" />
+                <Text style={s.docBtnTextWhite}>{uploading ? "Uploading…" : "Upload"}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.docBtn, { borderColor: theme.border, borderWidth: 1, opacity: uploading ? 0.4 : 1 }]}
+                style={[s.docBtn, { borderWidth: 1, borderColor: theme.outlineVariant, opacity: uploading ? 0.4 : 1 }]}
                 onPress={() => onSignatureSkip?.()}
                 disabled={uploading}
               >
-                <Text style={[s.docBtnText, { color: theme.text }]}>Skip</Text>
+                <Text style={[s.docBtnText, { color: theme.subtext }]}>Skip</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       );
 
+    // ── Document upload request ────────────────────────────────────────────
     case "document_upload_request":
       return (
         <View style={s.agentBubbleWrap}>
-          <View style={[s.docCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={s.docCardIcon}>📎</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.docCardTitle, { color: theme.text }]}>Upload Documents</Text>
-              <Text style={[s.docCardSub, { color: theme.subtext }]}>
-                {uploading
-                  ? "Uploading file, please wait…"
-                  : "Pay slips, bank statements, letters, etc."}
-              </Text>
+          <View style={[s.docCard, { backgroundColor: theme.surface }]}>
+            <View style={s.docCardHeader}>
+              <View style={[s.docIconWrap, { backgroundColor: theme.secondaryContainer }]}>
+                <Ionicons name="attach-outline" size={20} color={theme.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.docCardTitle, { color: theme.primary }]}>Upload Documents</Text>
+                <Text style={[s.docCardSub, { color: theme.subtext }]}>
+                  {uploading
+                    ? "Uploading file, please wait…"
+                    : "Pay slips, bank statements, letters, etc."}
+                </Text>
+              </View>
             </View>
             <View style={[s.docBtnRow, { opacity: uploading ? 0.45 : 1 }]}>
               <TouchableOpacity
-                style={[s.docBtn, { borderColor: theme.border, borderWidth: 1 }]}
+                style={[s.docBtn, { borderWidth: 1, borderColor: theme.outlineVariant }]}
                 onPress={() => onDocumentUpload?.("camera")}
                 disabled={uploading}
               >
-                <Text style={[s.docBtnText, { color: theme.text }]}>📷 Camera</Text>
+                <Ionicons name="camera-outline" size={14} color={theme.primary} />
+                <Text style={[s.docBtnText, { color: theme.primary }]}>Camera</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.docBtn, { borderColor: theme.border, borderWidth: 1 }]}
+                style={[s.docBtn, { borderWidth: 1, borderColor: theme.outlineVariant }]}
                 onPress={() => onDocumentUpload?.("gallery")}
                 disabled={uploading}
               >
-                <Text style={[s.docBtnText, { color: theme.text }]}>🖼 Gallery</Text>
+                <Ionicons name="images-outline" size={14} color={theme.primary} />
+                <Text style={[s.docBtnText, { color: theme.primary }]}>Gallery</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.docBtn, { borderColor: theme.border, borderWidth: 1 }]}
+                style={[s.docBtn, { borderWidth: 1, borderColor: theme.outlineVariant }]}
                 onPress={() => onDocumentUpload?.("file")}
                 disabled={uploading}
               >
-                <Text style={[s.docBtnText, { color: theme.text }]}>📄 File</Text>
+                <Ionicons name="document-outline" size={14} color={theme.primary} />
+                <Text style={[s.docBtnText, { color: theme.primary }]}>File</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
-              style={[s.doneBtn, { backgroundColor: theme.primary, opacity: uploading ? 0.45 : 1 }]}
+              style={[s.doneBtn, { backgroundColor: theme.secondary, opacity: uploading ? 0.45 : 1 }]}
               onPress={() => onDocumentsDone?.()}
               disabled={uploading}
             >
-              <Text style={s.doneBtnText}>✓ Done — Generate My Form</Text>
+              <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
+              <Text style={s.doneBtnText}>Generate My Form</Text>
             </TouchableOpacity>
           </View>
         </View>
       );
 
+    // ── Uploaded file card ─────────────────────────────────────────────────
     case "uploaded_file_card":
       return (
-        <View style={[s.uploadedCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={s.uploadedIcon}>{msg.isSignature ? "✍️" : "📎"}</Text>
-          <Text style={[s.uploadedName, { color: theme.text }]} numberOfLines={1}>
+        <View style={[s.uploadedCard, { backgroundColor: theme.tertiaryContainer }]}>
+          <Ionicons
+            name={msg.isSignature ? "create" : "attach"}
+            size={16}
+            color={theme.tertiary}
+          />
+          <Text style={[s.uploadedName, { color: "#16A34A" }]} numberOfLines={1}>
             {msg.isSignature ? "Signature uploaded" : msg.filename}
           </Text>
-          <Text style={[s.uploadedCheck, { color: "#22c55e" }]}>✓</Text>
+          <Ionicons name="checkmark-circle" size={16} color={theme.tertiary} />
         </View>
       );
 
@@ -235,6 +272,7 @@ export default function ChatMessageRow({
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
+  // User bubble
   userBubbleWrap: { alignItems: "flex-end" },
   userBubble: {
     maxWidth: "78%",
@@ -245,103 +283,140 @@ const s = StyleSheet.create({
   },
   userText: { color: "#fff", fontSize: 15, lineHeight: 21 },
 
+  // Agent bubble
   agentBubbleWrap: { alignItems: "flex-start" },
-  agentLabelRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 4 },
-  agentDot:  { width: 6, height: 6, borderRadius: 3 },
-  agentLabel: { fontSize: 10, fontWeight: "700", letterSpacing: 0.5 },
+  agentLabelRow:   { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 4 },
+  agentDot:        { width: 6, height: 6, borderRadius: 3 },
+  agentLabel:      { fontSize: 10, fontWeight: "700", letterSpacing: 0.8 },
   agentBubble: {
     maxWidth: "84%",
     borderRadius: 18,
     borderTopLeftRadius: 4,
-    borderWidth: 1,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
+    shadowColor: "#1B2A4A",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
   agentText: { fontSize: 15, lineHeight: 22 },
 
+  // Action buttons
   actionRowWrap: { flexDirection: "row", gap: 10, marginTop: 4, flexWrap: "wrap" },
   actionBtn: {
-    borderRadius: 22,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    borderRadius: 100,
+    paddingHorizontal: 22,
+    paddingVertical: 11,
     minWidth: 90,
     alignItems: "center",
   },
   actionBtnText: { fontSize: 14, fontWeight: "700" },
 
+  // Status card
   statusCard: {
+    borderRadius: 14,
+    overflow: "hidden",
+    flexDirection: "row",
+  },
+  statusStrip: { width: 4 },
+  statusInner: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 1.5,
     padding: 14,
     gap: 12,
   },
-  statusIcon:  { fontSize: 22 },
-  statusTitle: { fontSize: 15, fontWeight: "700" },
-  statusLabel: { fontSize: 13, marginTop: 2 },
+  statusIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  statusTitle:    { fontSize: 14, fontWeight: "700" },
+  statusLabel:    { fontSize: 12, marginTop: 2 },
 
+  // PDF card
   pdfCard: {
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 16,
     padding: 14,
-    gap: 8,
+    gap: 12,
     width: "92%",
+    shadowColor: "#1B2A4A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  pdfCardTop:  { flexDirection: "row", alignItems: "center", gap: 10 },
-  pdfIcon:     { fontSize: 28 },
-  pdfName:     { fontSize: 13, fontWeight: "700" },
-  pdfSub:      { fontSize: 11, marginTop: 1 },
-  pdfBtnRow:   { flexDirection: "row", gap: 8, marginTop: 4 },
-  pdfBtn: {
+  pdfCardTop:   { flexDirection: "row", alignItems: "center" },
+  pdfIconWrap:  { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  pdfName:      { fontSize: 13, fontWeight: "700" },
+  pdfSub:       { fontSize: 11, marginTop: 2 },
+  pdfBtnRow:    { flexDirection: "row", gap: 8 },
+  pdfBtnOutline: {
     flex: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 44,
-  },
-  pdfBtnText: { fontSize: 14, fontWeight: "700" },
-
-  docCard: {
-    borderRadius: 14,
+    gap: 5,
+    borderRadius: 100,
+    paddingVertical: 11,
     borderWidth: 1,
-    padding: 12,
-    gap: 8,
-    width: "92%",
   },
-  docCardIcon:  { fontSize: 26, marginBottom: 2 },
-  docCardTitle: { fontSize: 14, fontWeight: "700" },
-  docCardSub:   { fontSize: 11, marginTop: 2 },
-  docBtnRow:    { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  docBtn: {
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+  pdfBtnFilled: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 5,
+    borderRadius: 100,
+    paddingVertical: 11,
+  },
+  pdfBtnText: { fontSize: 13, fontWeight: "700" },
+
+  // Doc cards (signature + documents)
+  docCard: {
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    width: "92%",
+    shadowColor: "#1B2A4A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  docCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  docIconWrap:   { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  docCardTitle:  { fontSize: 14, fontWeight: "700", marginBottom: 2 },
+  docCardSub:    { fontSize: 12, lineHeight: 17 },
+  docBtnRow:     { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  docBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
   docBtnTextWhite: { color: "#fff", fontSize: 13, fontWeight: "700" },
   docBtnText:      { fontSize: 13, fontWeight: "600" },
+
   doneBtn: {
-    borderRadius: 10,
-    paddingVertical: 12,
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 100,
+    paddingVertical: 13,
   },
   doneBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+
+  // Uploaded file card
   uploadedCard: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     gap: 8,
     maxWidth: "80%",
+    alignSelf: "flex-start",
   },
-  uploadedIcon:  { fontSize: 18 },
-  uploadedName:  { flex: 1, fontSize: 13 },
-  uploadedCheck: { fontSize: 16, fontWeight: "700" },
+  uploadedName: { flex: 1, fontSize: 13, fontWeight: "600" },
 });

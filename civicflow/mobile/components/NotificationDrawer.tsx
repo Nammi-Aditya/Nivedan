@@ -1,7 +1,7 @@
 /**
  * NotificationDrawer
  * Slides in from the right. Shows all notifications with unread highlighting.
- * Tapping a notification navigates to the relevant complaint.
+ * Design: Nivedan / Sovereign Ledger — navy + saffron palette.
  */
 import React, { useEffect, useRef } from "react";
 import {
@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../constants/theme";
 import { useNotifications, type AppNotification } from "../context/NotificationContext";
 
@@ -27,8 +28,8 @@ interface Props {
 }
 
 export default function NotificationDrawer({ visible, onClose }: Props) {
-  const theme   = useTheme();
-  const router  = useRouter();
+  const theme  = useTheme();
+  const router = useRouter();
   const { notifications, unreadCount, markRead, markAllRead, refreshNotifications } =
     useNotifications();
   const slideX = useRef(new Animated.Value(DRAWER_WIDTH)).current;
@@ -55,26 +56,27 @@ export default function NotificationDrawer({ visible, onClose }: Props) {
     if (!notif.read) await markRead(notif._id);
     onClose();
     if (notif.complaint_id) {
-      // Navigate to dashboard case detail — we don't know subcategory here,
-      // so navigate to My Cases which shows full details.
       setTimeout(() => router.push("/(tabs)/dashboard" as any), 200);
     }
   };
 
-  const handleMarkAllRead = async () => {
-    await markAllRead();
+  const typeIcon = (type: string): any => {
+    switch (type) {
+      case "filed":        return "document-text-outline";
+      case "acknowledged": return "eye-outline";
+      case "under_review": return "search-outline";
+      case "next_step":    return "checkmark-circle-outline";
+      case "resolved":     return "trophy-outline";
+      case "failed":       return "close-circle-outline";
+      default:             return "notifications-outline";
+    }
   };
 
-  const typeIcon = (type: string) => {
-    switch (type) {
-      case "filed":          return "📋";
-      case "acknowledged":   return "👀";
-      case "under_review":   return "🔍";
-      case "next_step":      return "✅";
-      case "resolved":       return "🎉";
-      case "failed":         return "❌";
-      default:               return "🔔";
-    }
+  const typeColor = (type: string): string => {
+    if (type === "resolved" || type === "next_step") return "#22C55E";
+    if (type === "failed")    return "#BA1A1A";
+    if (type === "filed")     return theme.primary;
+    return theme.secondary;
   };
 
   if (!visible) return null;
@@ -83,12 +85,12 @@ export default function NotificationDrawer({ visible, onClose }: Props) {
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {/* Backdrop */}
       <TouchableOpacity
-        style={[s.backdrop]}
+        style={s.backdrop}
         activeOpacity={1}
         onPress={onClose}
       />
 
-      {/* Drawer panel */}
+      {/* Drawer */}
       <Animated.View
         style={[
           s.drawer,
@@ -97,26 +99,24 @@ export default function NotificationDrawer({ visible, onClose }: Props) {
       >
         <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
           {/* Header */}
-          <View style={[s.header, { borderBottomColor: theme.border }]}>
+          <View style={[s.header, { backgroundColor: theme.primary }]}>
             <View>
-              <Text style={[s.headerTitle, { color: theme.text }]}>Notifications</Text>
+              <Text style={s.headerTitle}>Notifications</Text>
               {unreadCount > 0 && (
-                <Text style={[s.headerSub, { color: theme.subtext }]}>
-                  {unreadCount} unread
-                </Text>
+                <Text style={s.headerSub}>{unreadCount} unread</Text>
               )}
             </View>
             <View style={s.headerActions}>
               {unreadCount > 0 && (
-                <TouchableOpacity onPress={handleMarkAllRead} style={s.markAllBtn}>
-                  <Text style={[s.markAllText, { color: theme.primary }]}>Mark all read</Text>
+                <TouchableOpacity onPress={() => markAllRead()}>
+                  <Text style={[s.markAllText, { color: theme.secondary }]}>Mark all read</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 onPress={onClose}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={[s.closeBtn, { color: theme.subtext }]}>✕</Text>
+                <Ionicons name="close" size={22} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
             </View>
           </View>
@@ -124,7 +124,10 @@ export default function NotificationDrawer({ visible, onClose }: Props) {
           {/* List */}
           {notifications.length === 0 ? (
             <View style={s.empty}>
-              <Text style={s.emptyIcon}>🔕</Text>
+              <View style={[s.emptyIconWrap, { backgroundColor: theme.primaryContainer }]}>
+                <Ionicons name="notifications-off-outline" size={32} color={theme.primary} />
+              </View>
+              <Text style={[s.emptyTitle, { color: theme.primary }]}>All caught up</Text>
               <Text style={[s.emptyText, { color: theme.subtext }]}>No notifications yet</Text>
             </View>
           ) : (
@@ -132,37 +135,47 @@ export default function NotificationDrawer({ visible, onClose }: Props) {
               data={notifications}
               keyExtractor={(n) => n._id}
               showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => handleTap(item)}
-                  style={[
-                    s.item,
-                    {
-                      borderBottomColor: theme.border,
-                      backgroundColor: item.read ? "transparent" : theme.primary + "0f",
-                    },
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.itemIcon}>{typeIcon(item.type)}</Text>
-                  <View style={s.itemBody}>
-                    <Text
-                      style={[
-                        s.itemMessage,
-                        { color: theme.text, fontWeight: item.read ? "400" : "600" },
-                      ]}
-                      numberOfLines={3}
-                    >
-                      {item.message}
-                    </Text>
-                    <Text style={[s.itemTime, { color: theme.subtext }]}>
-                      {timeAgo(item.created_at)}
-                    </Text>
-                  </View>
-                  {!item.read && (
-                    <View style={[s.unreadDot, { backgroundColor: theme.primary }]} />
-                  )}
-                </TouchableOpacity>
+              renderItem={({ item }) => {
+                const ic    = typeIcon(item.type);
+                const color = typeColor(item.type);
+                return (
+                  <TouchableOpacity
+                    onPress={() => handleTap(item)}
+                    style={[
+                      s.item,
+                      {
+                        backgroundColor: item.read
+                          ? "transparent"
+                          : theme.primary + "08",
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[s.itemIconWrap, { backgroundColor: color + "18" }]}>
+                      <Ionicons name={ic} size={18} color={color} />
+                    </View>
+                    <View style={s.itemBody}>
+                      <Text
+                        style={[
+                          s.itemMessage,
+                          { color: theme.text, fontWeight: item.read ? "400" : "600" },
+                        ]}
+                        numberOfLines={3}
+                      >
+                        {item.message}
+                      </Text>
+                      <Text style={[s.itemTime, { color: theme.subtext }]}>
+                        {timeAgo(item.created_at)}
+                      </Text>
+                    </View>
+                    {!item.read && (
+                      <View style={[s.unreadDot, { backgroundColor: theme.secondary }]} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              ItemSeparatorComponent={() => (
+                <View style={[s.separator, { backgroundColor: theme.surfaceContainerHigh }]} />
               )}
             />
           )}
@@ -174,7 +187,7 @@ export default function NotificationDrawer({ visible, onClose }: Props) {
 
 function timeAgo(isoString: string): string {
   try {
-    const diff = Date.now() - new Date(isoString).getTime();
+    const diff  = Date.now() - new Date(isoString).getTime();
     const mins  = Math.floor(diff / 60_000);
     const hours = Math.floor(diff / 3_600_000);
     const days  = Math.floor(diff / 86_400_000);
@@ -182,58 +195,53 @@ function timeAgo(isoString: string): string {
     if (mins < 60)  return `${mins}m ago`;
     if (hours < 24) return `${hours}h ago`;
     return `${days}d ago`;
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 }
 
 const s = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(10,18,32,0.5)",
   },
   drawer: {
     position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
+    right: 0, top: 0, bottom: 0,
     width: DRAWER_WIDTH,
     shadowColor: "#000",
-    shadowOffset: { width: -4, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 16,
+    shadowOffset: { width: -6, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 20,
   },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 18,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    paddingVertical: 18,
   },
-  headerTitle:   { fontSize: 17, fontWeight: "700" },
-  headerSub:     { fontSize: 12, marginTop: 2 },
+  headerTitle:   { fontSize: 17, fontWeight: "700", color: "#fff" },
+  headerSub:     { fontSize: 11, color: "rgba(255,255,255,0.65)", marginTop: 2 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 16 },
-  markAllBtn:    {},
-  markAllText:   { fontSize: 12, fontWeight: "600" },
-  closeBtn:      { fontSize: 18, fontWeight: "600" },
+  markAllText:   { fontSize: 12, fontWeight: "700" },
 
-  empty:     { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
-  emptyIcon: { fontSize: 40 },
-  emptyText: { fontSize: 14 },
+  empty:         { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
+  emptyIconWrap: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  emptyTitle:    { fontSize: 16, fontWeight: "700" },
+  emptyText:     { fontSize: 13 },
 
   item: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: 1,
     gap: 12,
   },
-  itemIcon:    { fontSize: 22, marginTop: 1 },
-  itemBody:    { flex: 1, gap: 4 },
-  itemMessage: { fontSize: 13, lineHeight: 19 },
-  itemTime:    { fontSize: 11 },
-  unreadDot:   { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
+  itemIconWrap: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  itemBody:     { flex: 1, gap: 4 },
+  itemMessage:  { fontSize: 13, lineHeight: 19 },
+  itemTime:     { fontSize: 11 },
+  unreadDot:    { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
+  separator:    { height: 1, marginHorizontal: 16 },
 });
