@@ -1,4 +1,4 @@
-<img src="civicflow/GitHubCoverPhoto.png" alt="Nivedan Cover" width="100%" />
+<img src="civicflow/GitHubCoverPhoto.png" alt="Nivedan Cover" width="60%" />
 
 # Nivedan
 
