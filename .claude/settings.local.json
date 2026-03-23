@@ -12,7 +12,9 @@
       "Bash(npx expo:*)",
       "Bash(powershell:*)",
       "Bash(ipconfig:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(node:*)"
     ]
   }
 }

@@ -163,7 +163,7 @@ export default function ProfileScreen() {
           </View>
 
           <View style={[s.divider, { backgroundColor: theme.surfaceContainerHigh }]} />
-          <InfoRow icon="shield-checkmark-outline" label={t("versionLabel")} value="1.0.0" theme={theme} />
+          <InfoRow icon="shield-checkmark-outline" label={t("versionLabel")} value="2.1" theme={theme} />
           <View style={[s.divider, { backgroundColor: theme.surfaceContainerHigh }]} />
           <InfoRow icon="document-text-outline" label={t("aboutLabel")} value={t("aboutValue")} theme={theme} />
           <View style={[s.divider, { backgroundColor: theme.surfaceContainerHigh }]} />

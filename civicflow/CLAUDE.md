@@ -1,4 +1,4 @@
-# CivicFlow — Project Memory
+# Nivedan — Project Memory (v2.1 — Deployment Ready)
 
 > Read this first. Update at end of each session. Read only files you're about to edit.
 
@@ -6,7 +6,7 @@
 
 ## What This App Does
 
-CivicFlow helps Indian citizens file government complaints in their own language.
+**Nivedan** helps Indian citizens file government complaints in their own language.
 
 **Mobile flow:** Pick category → AI (Sarvam) conversation → blank form shown → collect fields → signature + docs → filled PDF → submit to portal → push notification on status change.
 
@@ -198,19 +198,23 @@ src/components/landing/
                           PARALLAX: mouse tilt ±0.12Y / ±0.07X when idle
   ScrollDots.tsx          6 dots (sections 1–6), active = saffron pill
 
-src/pages/Login.tsx       Tailwind dark/light, floating theme toggle
-src/pages/Register.tsx    Language chip picker
-src/pages/Dashboard.tsx   4 stat cards + case list + donut chart (Recharts) + notif feed
+src/pages/Login.tsx       Split-screen: form (card box) left + floating illustration right; purple accent; Plus Jakarta Sans body, no slide animation
+src/pages/Register.tsx    Same split-screen pattern; Times New Roman only below image (removed); language chips purple
+src/pages/Dashboard.tsx   3-col layout: complaints | chart+notifs | vertical carousel (image+text); SVG icons, no emojis; purple accent
 src/pages/CaseDetail.tsx  Timeline + rejection panel + documents + form_data
 src/pages/Notifications.tsx Filter tabs + mark-all-read
-src/components/Layout.tsx Sidebar + topbar — fetches /notifications/mine for badge
+src/pages/Profile.tsx     NEW — hero card (purple→violet gradient matching mobile), lang chips, account info rows, theme toggle, sign out
+src/components/Layout.tsx Sidebar (Dashboard, Notifications, Profile) + topbar with LOGO.png; white default bg
 
-src/assets/LOGO.png       App logo
+src/assets/LOGO.png       App logo (also at public/LOGO.png)
+public/icon.ico           Favicon
 public/PhoneModel3D.glb   3D iPhone GLB model
 public/screenshots/       s0.png … s6.png — app screenshots shown on 3D phone screen
+public/LoginPagePhoto.png public/RegisterPagePhoto.png  public/CarouselImage1-4.png
 
+Fonts: Plus Jakarta Sans (Google Fonts) — body; Times New Roman — image captions only
 Packages: react-icons, Recharts, Three.js stack
-Tailwind: CDN in index.html, darkMode: 'class'
+Tailwind: CDN in index.html, darkMode: 'class', default light (white)
 ```
 
 ---
@@ -307,15 +311,21 @@ text = response.choices[0].message.content or ""
 7. **No Redux/Zustand** — local state + context only.
 8. **Flask host 0.0.0.0** — required for mobile on LAN.
 9. **complaint._id** — `/complaints/create` returns `_id`. Never use `.complaint_id`.
-10. **CORS open in dev** — flask-cors allows all origins.
+10. **CORS open in dev** — `CORS(app, methods=["GET","POST","PUT","PATCH","DELETE","OPTIONS"])` — DELETE must be explicit.
+11. **Global JSON errors** — `app.py` has `@app.errorhandler` for 400/401/403/404/405/409/500 returning JSON, never HTML.
+12. **Delete complaint** — `$or` query matches both ObjectId and legacy string `user_id` formats.
 
 ---
+
+## Version
+
+**v2.1 — Deployment Ready** (2026-03-22)
 
 ## Phases
 
 - [x] Phase 0–9 — Complete (scaffold, auth, portal, agent, PDF, viewer, notifications, sig+docs)
 - [x] **Phase 10** — Polish: multilingual UI labels, final animations ✓ complete
-- [ ] Phase 11 — Demo prep + final wiring ← **current**
+- [x] **Phase 11** — Web UI overhaul + bug fixes ✓ complete ← **current**
 
 ### Phase 10 — Completed
 
@@ -349,3 +359,26 @@ text = response.choices[0].message.content or ""
 #### Backend additions (Phase 10)
 - `DELETE /complaints/<id>` — owner-only, pending-only guard, `db.complaints.delete_one`
 - `PATCH /auth/me` — updates `preferred_language` with supported-language validation
+
+---
+
+### Phase 11 — Completed (v2.1)
+
+#### Branding
+- App renamed **Nivedan** across all surfaces (was CivicFlow)
+- `public/LOGO.png` used in web topbar, login, register cards
+- `public/icon.ico` used as browser favicon; title = "Nivedan"
+- Mobile version string updated to `2.1`
+
+#### Web UI overhaul
+- **Login/Register**: split-screen layout, floating illustration (CSS `@keyframes float`), card box around form, purple-600 buttons, light-mode default
+- **Dashboard**: 3-column layout (complaints | chart+notifs | vertical carousel); SVG icons replace all emojis; purple accent
+- **Profile page**: created from scratch — purple→violet gradient hero card (matches mobile screenshot), language chips, account info rows, theme toggle switch, sign-out button; route `/profile` added to `main.tsx`
+- **ThemeContext**: default changed to `light` (white); dark on toggle
+- **Fonts**: Plus Jakarta Sans (Google Fonts CDN) as body font; Times New Roman for image captions only
+- **Layout**: `bg-white` default; `LOGO.png` in topbar; sidebar nav fixed (Profile route was missing)
+
+#### Mobile fixes (Phase 11)
+- **Profile hero card**: `LinearGradient` from `expo-linear-gradient` — `#5B4EC9 → #9B72E8` left-to-right; translucent avatar circle `rgba(255,255,255,0.22)`; outlined "TEAM NIVEDAN" pill
+- **Hamburger drawer real-time**: `useFocusEffect` + refresh on `openMenu` — recent cases always reflect deletions immediately
+- **Delete bug fixed**: backend uses `$or` for ObjectId+string user_id; global JSON error handlers prevent HTML 500 responses; mobile shows actual server error instead of generic fallback
