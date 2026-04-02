@@ -5,7 +5,7 @@ from bson import ObjectId
 from flask import Blueprint, request, jsonify, g
 from db import db
 from services.auth_middleware import jwt_required
-from services.agent_runner import run_agent
+from services.agent_runner import run_agent, resume_agent
 from services.sarvam import chat_completion
 
 agent_bp = Blueprint("agent", __name__)
@@ -41,6 +41,18 @@ def agent_message():
     except Exception:
         logger.exception("agent_message failed for complaint %s", complaint_id)
         return jsonify({"error": "An internal error occurred. Please try again."}), 500
+
+
+@agent_bp.route("/resume/<complaint_id>", methods=["GET"])
+@jwt_required
+def agent_resume(complaint_id):
+    """Resume a conversation — returns last state without an LLM call or history reset."""
+    try:
+        result = resume_agent(complaint_id, g.user)
+        return jsonify(result), 200
+    except Exception:
+        logger.exception("agent_resume failed for complaint %s", complaint_id)
+        return jsonify({"error": "Could not resume conversation"}), 500
 
 
 @agent_bp.route("/thinking", methods=["POST"])

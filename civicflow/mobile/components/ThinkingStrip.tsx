@@ -164,7 +164,7 @@ function StepRow({ text, theme }: { text: string; theme: ReturnType<typeof useTh
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  wrap: { alignItems: "flex-start", gap: 6 },
+  wrap: { gap: 6 },
 
   labelRow: { flexDirection: "row", alignItems: "center", gap: 5, marginLeft: 2 },
   avatarCircle: {
@@ -174,7 +174,6 @@ const s = StyleSheet.create({
   agentLabel: { fontSize: 10, fontWeight: "700", letterSpacing: 0.8 },
 
   bubble: {
-    maxWidth: "88%",
     borderRadius: 18,
     borderTopLeftRadius: 4,
     paddingHorizontal: 14,

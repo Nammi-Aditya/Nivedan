@@ -340,17 +340,21 @@ def _handle_greeting(cid, form_data: dict, cfg: dict, user: dict, language: str)
         "kn": f"ನಮಸ್ಕಾರ {user_name}! ನಾನು CivicFlow AI. ನಿಮ್ಮ {title} ದೂರು ಸಲ್ಲಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ಏನಾಯಿತು?",
         "ml": f"നമസ്കാരം {user_name}! ഞാൻ CivicFlow AI. നിങ്ങളുടെ {title} പരാതി ഫയൽ ചെയ്യാൻ സഹായിക്കും. എന്ത് സംഭവിച്ചു?",
     }
+    greeting_text = greet_map.get(lang_code, greet_en)
+    # Save greeting as first assistant entry so resume can display it.
+    # _handle_llm_turn strips leading assistant turns before calling Sarvam,
+    # so this does NOT break the "user msg first" requirement.
     db.complaints.update_one(
         {"_id": cid},
         {"$set": {
             "agent_state":   "CHAT",
-            "agent_history": [],   # keep empty — Sarvam requires user msg first
+            "agent_history": [{"role": "assistant", "content": greeting_text}],
             "form_data":     form_data,
             "updated_at":    datetime.now(timezone.utc),
         }},
     )
     return {
-        "reply":          greet_map.get(lang_code, greet_en),
+        "reply":          greeting_text,
         "action":         None,
         "action_data":    None,
         "thinking_steps": ["👋 Starting session...", f"🌐 Language: {language}"],
@@ -755,6 +759,121 @@ def run_agent(complaint_id: str, user_message: str, user: dict) -> dict:
         form_data, state, history,
         language, cfg, category, user,
     )
+
+
+def resume_agent(complaint_id: str, user: dict) -> dict:
+    """
+    Resume an existing conversation.
+    Returns the appropriate UI state (last reply + action) without triggering an LLM call
+    or resetting agent_history.
+    """
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+
+    cid       = ObjectId(complaint_id)
+    # Use $or to match both ObjectId and legacy string user_id formats
+    user_oid  = user["_id"]
+    complaint = db.complaints.find_one({
+        "_id": cid,
+        "$or": [{"user_id": user_oid}, {"user_id": str(user_oid)}],
+    })
+    if not complaint:
+        _log.warning("resume_agent: complaint %s not found for user %s", complaint_id, user_oid)
+        return _err("Complaint not found.")
+
+    state       = complaint.get("agent_state", "CHAT")
+    history     = list(complaint.get("agent_history") or [])
+    _log.info("resume_agent: complaint=%s state=%s history_len=%d", complaint_id, state, len(history))
+    form_data   = dict(complaint.get("form_data") or {})
+    subcategory = complaint.get("subcategory", "")
+    cfg         = _config(subcategory)
+
+    # Extract the last clean assistant reply from persisted history
+    last_reply = None
+    for msg in reversed(history):
+        if msg.get("role") == "assistant":
+            _, _, clean = _parse_tail(msg.get("content", ""))
+            if clean:
+                last_reply = clean
+                break
+
+    # Build cleaned display history (strip EXTRACTED/ACTION metadata from assistant msgs)
+    display_history = []
+    for msg in history:
+        role    = msg.get("role")
+        content = msg.get("content", "")
+        if role == "user" and content:
+            display_history.append({"role": "user", "text": content})
+        elif role == "assistant":
+            _, _, clean = _parse_tail(content)
+            if clean:
+                display_history.append({"role": "assistant", "text": clean})
+
+    def _with_history(result: dict) -> dict:
+        result["history"] = display_history
+        return result
+
+    if state == "SUBMITTED":
+        return _with_history(_handle_submitted(complaint))
+
+    if state == "COLLECT_DOCS":
+        docs_stage = complaint.get("docs_stage", "signature")
+        if docs_stage == "signature":
+            return _with_history({
+                "reply":          last_reply or "Welcome back! Please upload your signature to continue.",
+                "action":         "request_signature",
+                "action_data":    {},
+                "thinking_steps": [],
+            })
+        return _with_history({
+            "reply":          last_reply or "Welcome back! Please upload your supporting documents, then tap Done.",
+            "action":         "request_documents",
+            "action_data":    {},
+            "thinking_steps": [],
+        })
+
+    if state == "PREVIEW":
+        try:
+            signature_b64   = complaint.get("signature_b64")
+            supporting_docs = list(complaint.get("supporting_docs") or [])
+            pdf_data        = {**form_data, "declaration_date": datetime.now(timezone.utc).strftime("%Y-%m-%d")}
+            pdf_base64      = generate_pdf_b64(
+                cfg["form_name"], pdf_data,
+                signature_b64=signature_b64,
+                supporting_docs=supporting_docs,
+            )
+            return _with_history({
+                "reply":       last_reply or "Here is your complaint form. Please review and confirm to submit.",
+                "action":      "show_pdf",
+                "action_data": {
+                    "filename":   f"Your_{cfg['title'].replace(' ', '_')}_Complaint.pdf",
+                    "pdf_base64": pdf_base64,
+                    "label":      "filled_form",
+                },
+                "thinking_steps": [],
+            })
+        except Exception:
+            pass  # Fall through to plain reply
+
+    # CHAT / SHOW_BLANK_FORM / COLLECT_FIELDS — just return the last reply
+    if not last_reply:
+        lang_code = user.get("preferred_language", "en") or "en"
+        user_name = user.get("name", "")
+        greet_map = {
+            "hi": f"वापस स्वागत है {user_name}! चलिए जारी रखते हैं।",
+            "ta": f"மீண்டும் வரவேற்கிறோம் {user_name}! தொடர்வோம்.",
+            "te": f"తిరిగి స్వాగతం {user_name}! కొనసాగిద్దాం.",
+            "kn": f"ಮರಳಿ ಸ್ವಾಗತ {user_name}! ಮುಂದುವರಿಸೋಣ.",
+            "ml": f"തിരിച്ചു സ്വാഗതം {user_name}! തുടരാം.",
+        }
+        last_reply = greet_map.get(lang_code, f"Welcome back {user_name}! Let's continue where we left off.")
+
+    return _with_history({
+        "reply":          last_reply,
+        "action":         None,
+        "action_data":    None,
+        "thinking_steps": [],
+    })
 
 
 def _err(msg: str) -> dict:

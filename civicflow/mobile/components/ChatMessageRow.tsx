@@ -359,8 +359,7 @@ const s = StyleSheet.create({
 
   // Thinking summary card
   thinkCard: {
-    alignSelf: "flex-start",
-    maxWidth: "84%",
+    alignSelf: "stretch",
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,

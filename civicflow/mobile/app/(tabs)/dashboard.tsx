@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { api } from "../../services/api";
 import { useTheme, STATUS_COLORS, trustStripColor } from "../../constants/theme";
 import { useTranslation, type Strings } from "../../constants/i18n";
@@ -37,6 +37,7 @@ export default function DashboardScreen() {
   const theme = useTheme();
   const { t } = useTranslation();
   const { notifications } = useNotifications();
+  const router = useRouter();
 
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -204,6 +205,10 @@ export default function DashboardScreen() {
             .replace(/\b\w/g, (c) => c.toUpperCase());
 
           return (
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => router.push({ pathname: `/chat/${item.subcategory}` as any, params: { complaint_id: item._id } })}
+            >
             <View style={[s.card, { backgroundColor: theme.surface }]}>
               <View style={[s.trustStrip, { backgroundColor: strip }]} />
               <View style={s.cardContent}>
@@ -251,6 +256,7 @@ export default function DashboardScreen() {
                 </View>
               </View>
             </View>
+            </TouchableOpacity>
           );
         }}
       />

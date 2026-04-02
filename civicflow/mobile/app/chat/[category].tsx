@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../services/api";
-import { sendAgentMessage, getThinkingSteps, AgentResponse } from "../../services/agent";
+import { sendAgentMessage, resumeAgentSession, getThinkingSteps, AgentResponse } from "../../services/agent";
 import { findSubcategory } from "../../constants/categories";
 import { useTheme } from "../../constants/theme";
 import ThinkingStrip from "../../components/ThinkingStrip";
@@ -35,7 +35,7 @@ type Stage = "loading" | "chatting" | "confirming" | "submitted";
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ChatScreen() {
-  const { category: paramId } = useLocalSearchParams<{ category: string }>();
+  const { category: paramId, complaint_id: resumeComplaintId } = useLocalSearchParams<{ category: string; complaint_id?: string }>();
   const router   = useRouter();
   const theme    = useTheme();
   const insets   = useSafeAreaInsets();
@@ -120,28 +120,97 @@ export default function ChatScreen() {
       setThinking(true);
       const initStart = Date.now();
       try {
-        const doc = await api.authedPost<{ _id: string }>(
-          "/complaints/create",
-          { category: parentCategory.label, subcategory: subcategory.id, form_data: {} }
-        );
-        if (cancelled) return;
+        if (resumeComplaintId) {
+          // ── Resume existing complaint ────────────────────────────────────
+          setComplaintId(resumeComplaintId);
+          lastStatusRef.current = "pending";
 
-        const cid = doc._id;
-        setComplaintId(cid);
-        lastStatusRef.current = "pending";
+          // Fetch last state without LLM call or history reset
+          const resumeRes = await resumeAgentSession(resumeComplaintId);
+          if (cancelled) return;
 
-        const greet = await sendAgentMessage(cid, "");
-        if (cancelled) return;
+          const elapsed = Date.now() - initStart;
+          if (elapsed < 2000) {
+            await new Promise<void>((r) => setTimeout(r, 2000 - elapsed));
+          }
+          if (cancelled) return;
 
-        // Ensure ThinkingStrip shows for at least 2s so user sees the loading state
-        const elapsed = Date.now() - initStart;
-        if (elapsed < 2000) {
-          await new Promise<void>((r) => setTimeout(r, 2000 - elapsed));
+          // Build entire message list atomically (single setMessages call avoids
+          // React 18 batching issues with a separate pushMsg for the current reply)
+          console.warn("[RESUME] history length:", resumeRes.history?.length ?? 0, "action:", resumeRes.action, "reply:", resumeRes.reply?.slice(0, 60));
+          const allMsgs: Message[] = [];
+
+          // 1. Past conversation from persisted history
+          for (const h of (resumeRes.history ?? [])) {
+            allMsgs.push({
+              id:   uid(),
+              type: h.role === "user" ? "user" : "agent",
+              text: h.text,
+            } as Message);
+          }
+
+          // 2. Current reply — skip if it duplicates the last history message
+          const lastMsg = allMsgs[allMsgs.length - 1] as (Message & { text?: string }) | undefined;
+          const replyIsDupe = lastMsg?.type === "agent" && lastMsg.text === resumeRes.reply;
+          if (resumeRes.reply && !replyIsDupe) {
+            allMsgs.push({ id: uid(), type: "agent", text: resumeRes.reply });
+          }
+
+          // 3. Action card matching current state
+          switch (resumeRes.action) {
+            case "show_pdf": {
+              const filename   = resumeRes.action_data?.filename ?? "complaint.pdf";
+              const pdf_base64 = resumeRes.action_data?.pdf_base64;
+              const label      = resumeRes.action_data?.label;
+              allMsgs.push({ id: uid(), type: "pdf_card", filename, pdfBase64: pdf_base64, label });
+              break;
+            }
+            case "request_signature":
+              allMsgs.push({ id: uid(), type: "signature_request" });
+              break;
+            case "request_documents":
+              allMsgs.push({ id: uid(), type: "document_upload_request" });
+              break;
+            case "status_update": {
+              const ref = resumeRes.action_data?.portal_ref_id ?? "";
+              allMsgs.push({ id: uid(), type: "status_update", status: "filed", label: `Ref: ${ref}` });
+              break;
+            }
+          }
+
+          setMessages(allMsgs);
+
+          if (resumeRes.action === "status_update") {
+            setStage("submitted");
+          } else if (["show_pdf", "request_signature", "request_documents"].includes(resumeRes.action ?? "")) {
+            setStage("confirming");
+          } else {
+            setStage("chatting");
+          }
+        } else {
+          // ── New complaint ────────────────────────────────────────────────
+          const doc = await api.authedPost<{ _id: string }>(
+            "/complaints/create",
+            { category: parentCategory.label, subcategory: subcategory.id, form_data: {} }
+          );
+          if (cancelled) return;
+
+          const cid = doc._id;
+          setComplaintId(cid);
+          lastStatusRef.current = "pending";
+
+          const greet = await sendAgentMessage(cid, "");
+          if (cancelled) return;
+
+          const elapsed = Date.now() - initStart;
+          if (elapsed < 2000) {
+            await new Promise<void>((r) => setTimeout(r, 2000 - elapsed));
+          }
+          if (cancelled) return;
+
+          applyResponseRef.current?.(greet);
+          setStage("chatting");
         }
-        if (cancelled) return;
-
-        applyResponseRef.current?.(greet);
-        setStage("chatting");
 
         // Defer setThinking(false) by one frame so the greeting renders BEFORE
         // ThinkingStrip hides (avoids React 18 batching them into the same commit)
