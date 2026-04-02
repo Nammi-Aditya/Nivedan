@@ -14,6 +14,17 @@ Users describe their problem by voice or text. The AI agent (powered by Sarvam A
 
 ---
 
+## Deployed Services
+
+| Service | URL |
+|---------|-----|
+| Backend API | https://nivedan.onrender.com |
+| Mock Govt Portal | https://nidean-govt-mock-portal.onrender.com/portal/dashboard |
+
+> **Note:** Both services are hosted on Render's free tier and may take 15–30 seconds to respond after a period of inactivity (cold start).
+
+---
+
 ## Architecture Overview
 
 ```
@@ -93,7 +104,7 @@ npm install
 
 ## Environment Variables
 
-### `civicflow/backend/.env`
+### `civicflow/backend/.env` (local dev)
 
 ```env
 MONGO_URI=mongodb://localhost:27017/civicflow
@@ -102,10 +113,22 @@ SARVAM_API_KEY=your-sarvam-api-key-here
 MOCK_PORTAL_URL=http://localhost:5001
 ```
 
+**Render (production) env vars:**
+```env
+MONGO_URI=<your-atlas-or-mongo-uri>
+JWT_SECRET=<strong-random-string>
+SARVAM_API_KEY=<from-sarvam-dashboard>
+MOCK_PORTAL_URL=https://nidean-govt-mock-portal.onrender.com
+```
+
 ### `civicflow/mobile/.env`
 
 ```env
+# Local dev (real phone on LAN)
 EXPO_PUBLIC_API_URL=http://<YOUR_LAN_IP>:5000
+
+# Point to deployed backend
+EXPO_PUBLIC_API_URL=https://nivedan.onrender.com
 ```
 
 > Get your LAN IP on Windows: `ipconfig` → Wi-Fi IPv4. Required when testing on a real phone. Run `npx expo start --clear` after changing this.
