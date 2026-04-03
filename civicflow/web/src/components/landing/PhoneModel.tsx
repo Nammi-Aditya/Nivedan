@@ -18,7 +18,7 @@ const SCREENSHOTS = [
 
 const TARGET_X = [1.5, 1.5, -1.5, 1.5, -1.5, 1.5, -1.5];
 
-interface Props { section: number }
+interface Props { section: number; center?: boolean }
 
 // ── Screenshot plane overlay (always works, regardless of GLB mesh names) ─────
 function ScreenPlane({
@@ -111,7 +111,7 @@ function Fallback() {
 }
 
 // ── Main phone group (drag / parallax / section slide) ────────────────────────
-export default function PhoneModel({ section }: Props) {
+export default function PhoneModel({ section, center }: Props) {
   const groupRef       = useRef<THREE.Group>(null);
   const screenLightRef = useRef<THREE.PointLight>(null);
 
@@ -154,6 +154,10 @@ export default function PhoneModel({ section }: Props) {
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
 
+  // If center=true (mobile layout), always target X=0
+  const targetXFor = (s: number) =>
+    center ? 0 : TARGET_X[Math.min(s, TARGET_X.length - 1)];
+
   // Skip slide+spin on the very first mount — intro handles positioning
   const mountedRef = useRef(false);
 
@@ -164,7 +168,7 @@ export default function PhoneModel({ section }: Props) {
     }
     if (!groupRef.current) return;
     fromX.current      = groupRef.current.position.x;
-    toX.current        = TARGET_X[Math.min(section, TARGET_X.length - 1)];
+    toX.current        = targetXFor(section);
     pendingSec.current = section;
     slideRef.current   = 0;
     swapped.current    = false;
@@ -215,7 +219,7 @@ export default function PhoneModel({ section }: Props) {
       groupRef.current.rotation.x = 0.055;
       groupRef.current.rotation.z = 0;
       groupRef.current.position.y = Math.sin(t * 0.8) * 0.09;
-      groupRef.current.position.x = TARGET_X[0];
+      groupRef.current.position.x = targetXFor(0);
       if (screenLightRef.current) screenLightRef.current.intensity = 0.9;
       if (p >= 1) introDone.current = true;
       return;

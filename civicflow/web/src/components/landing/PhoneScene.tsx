@@ -5,9 +5,10 @@ import PhoneModel from './PhoneModel';
 
 interface Props {
   section: number;
+  center?: boolean; // force phone to X=0 (used by mobile layout)
 }
 
-export default function PhoneScene({ section }: Props) {
+export default function PhoneScene({ section, center }: Props) {
   return (
     <Canvas
       camera={{ position: [0, 0, 4.6], fov: 44 }}
@@ -21,7 +22,7 @@ export default function PhoneScene({ section }: Props) {
       <pointLight       intensity={0.2}  color="#3B5998" position={[0, -1, -3]}  distance={6} decay={2} />
 
       <Suspense fallback={null}>
-        <PhoneModel section={section} />
+        <PhoneModel section={section} center={center} />
         <ContactShadows position={[0, -1.35, 0]} opacity={0.18} scale={4.5} blur={5} far={2} />
         <Environment preset="city" />
       </Suspense>

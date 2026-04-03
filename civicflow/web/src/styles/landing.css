@@ -197,18 +197,30 @@
   .hero-float-cards { display: none !important; }
 }
 
-/* Responsive: tighten content overlay panel */
-@media (max-width: 1280px) {
-  /* content panel is inline-styled; these affect children */
-  .landing-section { padding: 64px 48px; }
-}
-@media (max-width: 960px) {
-  .landing-section { padding: 48px 24px; }
-}
-
 /* Responsive: section accent panels */
 @media (max-width: 1100px) {
   .section-accent-panel { display: none !important; }
+}
+
+/* ── Mobile layout overrides ─────────────────────────────────────────────── */
+.mobile-layout {
+  background: #FFFFFF;
+  overflow-x: hidden;
+}
+
+/* Mobile: make Final CTA padding comfortable */
+@media (max-width: 959px) {
+  .final-cta-dark {
+    padding: 64px 24px 56px !important;
+  }
+  .final-cta-dark h2 {
+    font-size: clamp(32px, 9vw, 48px) !important;
+  }
+}
+
+/* Mobile: footer readable */
+@media (max-width: 959px) {
+  footer { padding: 48px 24px 32px !important; }
 }
 
 /* ── Marquee ticker ──────────────────────────────────── */

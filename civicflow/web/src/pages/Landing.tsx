@@ -840,10 +840,242 @@ function Footer() {
   );
 }
 
+// ── Window width hook ─────────────────────────────────────────────────────────
+function useWindowWidth() {
+  const [width, setWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return width;
+}
+
+// ── Mobile layout (single-column) ─────────────────────────────────────────────
+function MobileLanding() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="landing-page mobile-layout">
+      <Navbar />
+
+      {/* Phone hero block */}
+      <div style={{ paddingTop: 64, display: 'flex', flexDirection: 'column' }}>
+
+        {/* 3D phone — full width, fixed height */}
+        <div style={{ height: 340, width: '100%', position: 'relative', flexShrink: 0 }}>
+          <PhoneScene section={0} center />
+        </div>
+
+        {/* Hero text */}
+        <div style={{ padding: '32px 24px 40px', textAlign: 'center' }}>
+          {/* Badge */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            padding: '5px 14px', borderRadius: 100,
+            background: 'rgba(232,137,26,0.08)', border: '1px solid rgba(232,137,26,0.35)',
+            fontFamily: FONT_MONO, fontSize: 10, color: '#C9731A',
+            letterSpacing: '0.03em', marginBottom: 18,
+          }}>
+            <Icon as={FiGlobe} size={11} color="#C9731A" />
+            Available in 8+ Indian Languages
+          </div>
+
+          {/* H1 */}
+          <h1 style={{
+            fontFamily: FONT_DISPLAY, fontSize: 'clamp(26px, 7vw, 40px)',
+            fontWeight: 900, lineHeight: 1.12, margin: '0 0 6px', color: '#1B2A4A',
+          }}>
+            File Government Complaints.
+          </h1>
+          <div style={{
+            fontFamily: FONT_DISPLAY, fontSize: 'clamp(28px, 8vw, 44px)',
+            fontWeight: 900, lineHeight: 1.1, marginBottom: 18,
+            background: 'linear-gradient(90deg, #E8891A 0%, #F5A843 60%, #C9731A 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}>
+            From Your Pocket.
+          </div>
+
+          {/* Body */}
+          <p style={{
+            fontFamily: FONT_UI, fontSize: 15, lineHeight: 1.7,
+            color: 'rgba(27,42,74,0.65)', maxWidth: 480,
+            margin: '0 auto 24px',
+          }}>
+            {HERO.body}
+          </p>
+
+          {/* CTA */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+            <button onClick={() => navigate('/register')} style={{
+              height: 50, width: '100%', maxWidth: 320, borderRadius: 12,
+              border: 'none', background: '#E8891A', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              fontFamily: FONT_DISPLAY, fontSize: 15, fontWeight: 700, cursor: 'pointer',
+            }}>
+              <Icon as={IoLogoAndroid} size={18} color="#fff" />
+              Download for Free
+            </button>
+            <button onClick={() => navigate('/login')} style={{
+              height: 50, width: '100%', maxWidth: 320, borderRadius: 12,
+              border: '1.5px solid rgba(27,42,74,0.25)', background: 'transparent',
+              color: '#1B2A4A', fontFamily: FONT_UI, fontSize: 15, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              Sign In
+            </button>
+          </div>
+
+          {/* Trust row */}
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
+            {HERO.trust.map((t, i) => (
+              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: FONT_UI, fontSize: 12, color: 'rgba(27,42,74,0.45)' }}>
+                <Icon as={t.icon} size={12} color="rgba(27,42,74,0.35)" />
+                {t.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Marquee */}
+      <MarqueeStrip />
+
+      {/* Sections — stacked column */}
+      {SECTIONS.map((sec, i) => (
+        <div key={sec.num} style={{
+          padding: '48px 24px',
+          borderTop: '1px solid rgba(27,42,74,0.07)',
+          background: i % 2 === 0 ? '#FFFFFF' : '#F8FAFC',
+        }}>
+          {/* Section label */}
+          <div style={{
+            fontFamily: FONT_MONO, fontSize: 10, color: '#C9731A',
+            letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 12,
+          }}>
+            {sec.num} / {sec.label}
+          </div>
+
+          {/* H2 */}
+          <h2 style={{
+            fontFamily: FONT_DISPLAY, fontSize: 'clamp(22px, 6vw, 32px)',
+            fontWeight: 900, lineHeight: 1.15, color: '#1B2A4A', margin: '0 0 14px',
+          }}>
+            {sec.h2.join(' ')}
+          </h2>
+
+          {/* Body */}
+          <p style={{
+            fontFamily: FONT_UI, fontSize: 14, lineHeight: 1.72,
+            color: 'rgba(27,42,74,0.65)', margin: '0 0 22px',
+          }}>
+            {sec.body}
+          </p>
+
+          {/* Chips */}
+          {'chips' in sec && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {(sec as any).chips.map((c: { icon: IconType; text: string }) => (
+                <span key={c.text} className="feature-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Icon as={c.icon} size={12} color="#C9731A" />
+                  {c.text}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Stats */}
+          {'stats' in sec && (
+            <div style={{ display: 'flex', gap: 0 }}>
+              {(sec as any).stats.map((s: any, j: number) => (
+                <div key={s.sub} style={{ display: 'flex', alignItems: 'center' }}>
+                  <div style={{ textAlign: 'center', padding: '0 20px' }}>
+                    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 30, fontWeight: 700, color: '#E8891A' }}>{s.n}</div>
+                    <div style={{ fontFamily: FONT_UI, fontSize: 11, color: 'rgba(27,42,74,0.50)', marginTop: 4 }}>{s.sub}</div>
+                  </div>
+                  {j < 2 && <div className="stat-divider" />}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Languages */}
+          {'langs' in sec && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              {(sec as any).langs.map((l: any) => (
+                <div key={l.t} style={{
+                  padding: '8px 4px', borderRadius: 100, textAlign: 'center',
+                  fontFamily: FONT_UI, fontSize: 13, fontWeight: l.hi ? 600 : 400,
+                  background: l.hi ? '#E8891A' : 'rgba(27,42,74,0.05)',
+                  color: l.hi ? '#fff' : 'rgba(27,42,74,0.75)',
+                  border: l.hi ? 'none' : '1px solid rgba(27,42,74,0.12)',
+                }}>{l.t}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Categories */}
+          {'categories' in sec && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {(sec as any).categories.map((c: { icon: IconType; title: string; desc: string }) => (
+                <div key={c.title} className="category-grid-card">
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(232,137,26,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                    <Icon as={c.icon} size={15} color="#E8891A" />
+                  </div>
+                  <div style={{ fontFamily: FONT_UI, fontSize: 12, fontWeight: 700, color: '#1B2A4A' }}>{c.title}</div>
+                  <div style={{ fontFamily: FONT_UI, fontSize: 11, color: 'rgba(27,42,74,0.48)', lineHeight: 1.4 }}>{c.desc}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Steps */}
+          {'steps' in sec && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, position: 'relative' }}>
+              <div style={{ position: 'absolute', left: 13, top: 24, bottom: 24, width: 1, borderLeft: '2px dashed rgba(232,137,26,0.25)' }} />
+              {(sec as any).steps.map((step: { icon: IconType; text: string }, j: number) => (
+                <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', position: 'relative' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#E8891A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 }}>
+                    <Icon as={step.icon} size={13} color="#fff" />
+                  </div>
+                  <span style={{ fontFamily: FONT_UI, fontSize: 14, color: 'rgba(27,42,74,0.78)' }}>{step.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Cards */}
+          {'cards' in sec && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(sec as any).cards.map((card: { icon: IconType; title: string; desc: string }) => (
+                <div key={card.title} className="glass-card">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Icon as={card.icon} size={15} color="#E8891A" />
+                    <div style={{ fontFamily: FONT_UI, fontSize: 14, fontWeight: 600, color: '#1B2A4A' }}>{card.title}</div>
+                  </div>
+                  <div style={{ fontFamily: FONT_UI, fontSize: 13, color: 'rgba(27,42,74,0.55)' }}>{card.desc}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+
+      <FinalCTA />
+      <Footer />
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 const TOTAL_SECTIONS = 7;
 
-export default function Landing() {
+// ── Desktop landing (scroll-driven 3D fixed layout) ──────────────────────────
+function DesktopLanding() {
   const [section,     setSection]     = useState(0);
   const [displayIdx,  setDisplayIdx]  = useState(0);
   const [fadeOpacity, setFadeOpacity] = useState(1);
@@ -943,4 +1175,10 @@ export default function Landing() {
       </div>
     </div>
   );
+}
+
+// ── Root router — picks mobile or desktop layout ──────────────────────────────
+export default function Landing() {
+  const w = useWindowWidth();
+  return w < 960 ? <MobileLanding /> : <DesktopLanding />;
 }
