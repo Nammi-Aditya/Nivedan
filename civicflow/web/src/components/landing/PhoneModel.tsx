@@ -154,18 +154,23 @@ export default function PhoneModel({ section }: Props) {
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
 
+  // Skip slide+spin on the very first mount — intro handles positioning
+  const mountedRef = useRef(false);
+
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return; // intro animation places the phone; don't fight it with a slide
+    }
     if (!groupRef.current) return;
     fromX.current      = groupRef.current.position.x;
     toX.current        = TARGET_X[Math.min(section, TARGET_X.length - 1)];
     pendingSec.current = section;
     slideRef.current   = 0;
     swapped.current    = false;
-    // Trigger 360° spin on each section change (skip during intro)
-    if (introDone.current) {
-      spinProgress.current = 0;
-      spinActive.current   = true;
-    }
+    // Trigger 360° spin on each section change
+    spinProgress.current = 0;
+    spinActive.current   = true;
   }, [section]);
 
   const onPointerDown = (e: any) => {

@@ -28,10 +28,9 @@ function Icon({ as: I, size = 16, color, style }: {
 
 // ── Section data ──────────────────────────────────────────────────────────────
 const HERO = {
-  badge: 'Available in 8+ Indian Languages',
   h1Lines: ['File Government', 'Complaints.'],
   h1Accent: 'From Your Pocket.',
-  body: "No more standing in queues. Nivedan's AI agent files your complaint, fills the forms, submits to government portals — and tracks everything. In your language.",
+  body: "No more standing in queues. Nivedan's AI agent files your complaint, fills the forms, submits to government portals and tracks everything. In your language.",
   trust: [
     { icon: FiZap,  label: 'Powered by AI' },
     { icon: FiLock, label: 'Govt. Grade Security' },
@@ -168,8 +167,8 @@ function FloatingHeroCards({ visible }: { visible: boolean }) {
 
   return (
     <>
-      {/* LEFT side — Hindi + Tamil */}
-      <div className="hero-float-cards" style={{ ...base, left: '3%', alignItems: 'flex-start' }}>
+      {/* LEFT side — Hindi + Tamil — positioned BELOW the hero text, bottom-left */}
+      <div className="hero-float-cards" style={{ ...base, left: '40%', bottom: '22%', alignItems: 'flex-start' }}>
         {/* Hindi notification */}
         <FloatCard className="hero-float-card-b">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -187,7 +186,7 @@ function FloatingHeroCards({ visible }: { visible: boolean }) {
         </FloatCard>
 
         {/* Tamil AI chat */}
-        <FloatCard className="hero-float-card-a" style={{ marginLeft: 20 }}>
+        <FloatCard className="hero-float-card-a" style={{ marginLeft: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             {aiDot}
             <div>
@@ -410,7 +409,7 @@ function SectionAccent({ idx, visible }: { idx: number; visible: boolean }) {
   })();
 
   return (
-    <div style={{
+    <div className="section-accent-panel" style={{
       position: 'fixed', ...pos,
       top: '50%', transform: 'translateY(-50%)',
       zIndex: 6, pointerEvents: 'none',
@@ -430,7 +429,7 @@ function SectionContent({ idx }: { idx: number }) {
     return (
       <>
         {/* Badge */}
-        <div style={{
+        {/* <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 7,
           padding: '6px 14px', borderRadius: 100,
           background: 'rgba(232,137,26,0.08)', border: '1px solid rgba(232,137,26,0.35)',
@@ -439,21 +438,28 @@ function SectionContent({ idx }: { idx: number }) {
         }}>
           <Icon as={FiGlobe} size={12} color="#C9731A" />
           {HERO.badge}
-        </div>
+        </div> */}
 
         {/* H1 */}
         <h1 style={{
-          fontFamily: FONT_DISPLAY, fontSize: 'clamp(38px,5vw,64px)',
-          fontWeight: 900, lineHeight: 1.08, margin: '0 0 22px', color: '#1B2A4A',
+          fontFamily: FONT_DISPLAY, fontSize: 'clamp(28px, 3.6vw, 10px)',
+          fontWeight: 900, lineHeight: 1.1, margin: '0 0 18px', color: '#1B2A4A',
         }}>
           {HERO.h1Lines.map(l => <span key={l} style={{ display: 'block' }}>{l}</span>)}
-          <span style={{ display: 'block', color: '#E8891A' }}>{HERO.h1Accent}</span>
+          <span style={{
+            display: 'block',
+            fontSize: '1.18em',
+            background: 'linear-gradient(90deg, #E8891A 0%, #F5A843 60%, #C9731A 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}>{HERO.h1Accent}</span>
         </h1>
 
         {/* Body */}
         <p style={{
-          fontFamily: FONT_UI, fontSize: 17, lineHeight: 1.72,
-          color: 'rgba(27,42,74,0.65)', maxWidth: 400, margin: '0 0 28px',
+          fontFamily: FONT_UI, fontSize: 15, lineHeight: 1.72,
+          color: 'rgba(27,42,74,0.65)', maxWidth: 380, margin: '0 0 22px',
         }}>
           {HERO.body}
         </p>
@@ -506,7 +512,7 @@ function SectionContent({ idx }: { idx: number }) {
       {/* Section label */}
       <div style={{ marginBottom: 14 }}>
         <span style={{
-          fontFamily: FONT_MONO, fontSize: 11, fontWeight: 500,
+          fontFamily: FONT_MONO, fontSize: 9, fontWeight: 500,
           color: '#C9731A', letterSpacing: '0.14em', textTransform: 'uppercase',
         }}>
           {sec.num} / {sec.label}
@@ -515,16 +521,16 @@ function SectionContent({ idx }: { idx: number }) {
 
       {/* H2 */}
       <h2 style={{
-        fontFamily: FONT_DISPLAY, fontSize: 'clamp(34px,4vw,52px)',
-        fontWeight: 900, lineHeight: 1.12, margin: '0 0 18px', color: '#1B2A4A',
+        fontFamily: FONT_DISPLAY, fontSize: 'clamp(24px, 3vw, 42px)',
+        fontWeight: 900, lineHeight: 1.12, margin: '0 0 16px', color: '#1B2A4A',
       }}>
         {sec.h2.map(l => <span key={l} style={{ display: 'block' }}>{l}</span>)}
       </h2>
 
       {/* Body */}
       <p style={{
-        fontFamily: FONT_UI, fontSize: 16, lineHeight: 1.72,
-        color: 'rgba(27,42,74,0.65)', maxWidth: 380, margin: '0 0 22px',
+        fontFamily: FONT_UI, fontSize: 14, lineHeight: 1.72,
+        color: 'rgba(27,42,74,0.65)', maxWidth: 360, margin: '0 0 18px',
       }}>
         {sec.body}
       </p>
@@ -658,7 +664,7 @@ function FinalCTA() {
 
         {/* Headline */}
         <h2 style={{
-          fontFamily: FONT_DISPLAY, fontSize: 'clamp(44px,7vw,76px)',
+          fontFamily: FONT_DISPLAY, fontSize: 'clamp(44px,7vw,50px)',
           fontWeight: 900, lineHeight: 1.08, marginBottom: 22,
           color: '#FFFFFF', textAlign: 'center',
         }}>
@@ -895,7 +901,7 @@ export default function Landing() {
           position:    'absolute',
           left:        textLeft ? '5%' : 'auto',
           right:      !textLeft ? '5%' : 'auto',
-          width:       'min(440px, 42%)',
+          width:       'min(400px, 40%)',
           opacity:     fadeOpacity,
           transform:   `translateY(${fadeOpacity === 1 ? 0 : 12}px)`,
           transition:  'opacity 0.3s ease, transform 0.3s ease',
