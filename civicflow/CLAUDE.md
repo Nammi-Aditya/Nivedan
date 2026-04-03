@@ -319,13 +319,15 @@ text = response.choices[0].message.content or ""
 
 ## Version
 
-**v2.1 — Deployment Ready** (2026-03-22)
+**v2.3.2 — Full Multilingual Chat** (2026-04-04)
 
 ## Phases
 
 - [x] Phase 0–9 — Complete (scaffold, auth, portal, agent, PDF, viewer, notifications, sig+docs)
 - [x] **Phase 10** — Polish: multilingual UI labels, final animations ✓ complete
-- [x] **Phase 11** — Web UI overhaul + bug fixes ✓ complete ← **current**
+- [x] **Phase 11** — Web UI overhaul + bug fixes ✓ complete
+- [x] **Phase 12** — CoT thinking strip, error hardening, chat continuity ✓ complete
+- [x] **Phase 13** — Full multilingual chat v2.3.2 (Sarvam transliteration + native-script replies) ✓ complete ← **current**
 
 ### Phase 10 — Completed
 
@@ -382,8 +384,23 @@ text = response.choices[0].message.content or ""
 - **Profile hero card**: `LinearGradient` from `expo-linear-gradient` — `#5B4EC9 → #9B72E8` left-to-right; translucent avatar circle `rgba(255,255,255,0.22)`; outlined "TEAM NIVEDAN" pill
 - **Hamburger drawer real-time**: `useFocusEffect` + refresh on `openMenu` — recent cases always reflect deletions immediately
 - **Delete bug fixed**: backend uses `$or` for ObjectId+string user_id; global JSON error handlers prevent HTML 500 responses; mobile shows actual server error instead of generic fallback
-Add under a ## Workflow Rules section at the top of CLAUDE.md\n\nAfter making significant changes or completing a project phase, always update CLAUDE.md and related documentation without being asked.
-Add under a ## UI/Design Guidelines section\n\nWhen working on UI/design tasks, confirm the exact visual reference (light/dark mode, icon library, color scheme) before making bulk changes. Show a summary of planned changes first.
-Add under a ## General Rules section\n\nAlways check for existing config files (.mcp.json, .env, settings.json) in the project before asking the user or making assumptions about configuration.
-Add under a ## Testing & Analysis section\n\nWhen running code analysis tools (vulture, linters, tests), exclude virtual environments (.venv, node_modules) and build directories by default.
-Add under a ## Platform Notes section\n\nFor Windows development: handle Unicode/encoding issues proactively (use cp1252-safe characters), use os.path for path resolution, and account for Windows-specific quirks (Qt threading, ffmpeg dependencies).
+
+---
+
+### Phase 12 — Completed (v2.2.0–2.2.2)
+
+- **CoT thinking strip**: full-screen width, steps revealed one-by-one, parallel `/agent/thinking` call, 3.5s minimum display
+- **Error hardening**: all API error paths reviewed, global JSON handlers, `$or` user_id guards
+- **Chat continuity**: `/agent/resume/<id>` returns cleaned history without LLM call; greeting persisted to `agent_history`
+
+---
+
+### Phase 13 — Completed (v2.3.2)
+
+#### Full Multilingual Chat
+- **Sarvam transliteration**: system prompt instructs `sarvam-m` to understand romanized Indian-language input (e.g. "naku salary ichhadam ledu" → Telugu, "mujhe salary nahi mili" → Hindi)
+- **Native-script replies**: model responds in the user's selected language script (Telugu, Hindi, Tamil, Kannada, Malayalam, or English)
+- **Structured output preserved**: `EXTRACTED:` and `ACTION:` tags always written in ASCII — parser unaffected
+- **English field values**: EXTRACTED values transliterated to English regardless of input script — PDF form compatibility maintained
+- **`_FIXED_MSGS` + `_t()`**: all non-LLM hardcoded messages (signature request, doc request, PDF ready, already-filed, resume fallbacks) translated for all 6 languages
+- **`lang_code` plumbed**: `run_agent` and `resume_agent` extract `preferred_language` and pass it to every state handler

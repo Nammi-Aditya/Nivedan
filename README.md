@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.2.2-blue" />
+  <img src="https://img.shields.io/badge/version-2.3.2-blue" />
   <img src="https://img.shields.io/badge/platform-Android%20%7C%20iOS%20%7C%20Web-lightgrey" />
   <img src="https://img.shields.io/badge/AI-Sarvam%20AI-orange" />
   <img src="https://img.shields.io/badge/license-MIT-green" />
@@ -36,6 +36,17 @@ Users describe their problem by voice or text. The AI agent (powered by Sarvam A
 ---
 
 ## Changelog
+
+<details>
+<summary><strong>v2.3.2</strong> — Full Multilingual Chat (Sarvam AI)</summary>
+
+- Chat responds in the user's selected language (English, Hindi, Telugu, Tamil, Kannada, Malayalam)
+- Sarvam AI understands transliterated input — users can type in their language using English letters (e.g. "naku salary ichhadam ledu" is understood as Telugu)
+- System prompt enforces native-script replies while keeping `EXTRACTED:` / `ACTION:` metadata always in ASCII — parser reliability maintained
+- All non-LLM fixed messages (signature request, document request, PDF ready, resume fallbacks) now translated for all 6 languages
+- Form field values extracted into English regardless of input script — ensures PDF compatibility
+
+</details>
 
 <details>
 <summary><strong>v2.2.2</strong> — Chat Continuity & Conversation History</summary>

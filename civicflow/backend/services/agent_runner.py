@@ -25,6 +25,74 @@ LANG_NAMES = {
     "gu": "Gujarati (ગુજરાતી)", "pa": "Punjabi (ਪੰਜਾਬੀ)",
 }
 
+# ── Fixed translated messages (for non-LLM-driven turns) ─────────────────────
+
+_FIXED_MSGS: dict[str, dict[str, str]] = {
+    "sig_request": {
+        "en": "Great! I've collected all the information. Before generating your complaint form, I need your signature. Please upload a photo of your signature, or tap 'Skip' to continue without one.",
+        "hi": "बढ़िया! सारी जानकारी मिल गई। फ़ॉर्म बनाने से पहले आपके हस्ताक्षर चाहिए। कृपया हस्ताक्षर की फ़ोटो अपलोड करें, या बिना हस्ताक्षर के जारी रखने के लिए 'Skip' दबाएं।",
+        "te": "చాలా బాగుంది! అన్ని వివరాలు సేకరించాను. ఫారం తయారు చేయడానికి ముందు మీ సంతకం కావాలి. దయచేసి సంతకం ఫోటో అప్‌లోడ్ చేయండి, లేదా సంతకం లేకుండా కొనసాగించడానికి 'Skip' నొక్కండి.",
+        "ta": "நன்றாக! எல்லா தகவல்களும் சேகரிக்கப்பட்டன. படிவம் தயாரிக்க உங்கள் கையொப்பம் தேவை. கையொப்பத்தின் புகைப்படத்தை பதிவேற்றவும், அல்லது 'Skip' அழுத்தவும்.",
+        "kn": "ಅದ್ಭುತ! ಎಲ್ಲಾ ಮಾಹಿತಿ ಸಂಗ್ರಹಿಸಲಾಗಿದೆ. ಫಾರ್ಮ್ ತಯಾರಿಸುವ ಮೊದಲು ನಿಮ್ಮ ಸಹಿ ಬೇಕು. ಸಹಿಯ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ, ಅಥವಾ 'Skip' ಒತ್ತಿ.",
+        "ml": "മികച്ചത്! എല്ലാ വിവരങ്ങളും ശേഖരിച്ചു. ഫോം തയ്യാറാക്കുന്നതിന് മുമ്പ് നിങ്ങളുടെ ഒപ്പ് ആവശ്യമാണ്. ഒപ്പിന്റെ ഫോട്ടോ അപ്‌ലോഡ് ചെയ്യുക, അല്ലെങ്കിൽ 'Skip' അമർത്തുക.",
+    },
+    "doc_request": {
+        "en": "Got it! Now please upload any supporting documents relevant to your case — such as pay slips, bank statements, employment letter, or written notices. You can add multiple. Tap 'Done' when finished, or 'Skip' to proceed without documents.",
+        "hi": "ठीक है! अब अपने मामले से संबंधित दस्तावेज़ अपलोड करें — जैसे वेतन पर्ची, बैंक स्टेटमेंट, नियोजन पत्र, या नोटिस। कई दस्तावेज़ जोड़ सकते हैं। पूरा होने पर 'Done' दबाएं, या दस्तावेज़ के बिना आगे बढ़ने के लिए 'Skip' दबाएं।",
+        "te": "అర్థమైంది! ఇప్పుడు మీ కేసుకు సంబంధించిన మద్దతు పత్రాలు అప్‌లోడ్ చేయండి — జీతపు స్లిప్‌లు, బ్యాంక్ స్టేట్‌మెంట్లు, ఉద్యోగ లేఖ లేదా నోటీసులు. బహుళ పత్రాలు జోడించవచ్చు. పూర్తయినప్పుడు 'Done' నొక్కండి, లేదా పత్రాలు లేకుండా కొనసాగించడానికి 'Skip' నొక్కండి.",
+        "ta": "சரி! இப்போது உங்கள் வழக்கிற்கு தொடர்புடைய ஆவணங்களை பதிவேற்றவும் — சம்பள சீட்டுகள், வங்கி அறிக்கைகள், வேலை கடிதம் அல்லது நோட்டீஸ்கள். பல ஆவணங்கள் சேர்க்கலாம். முடிந்ததும் 'Done' அழுத்தவும், அல்லது 'Skip' அழுத்தவும்.",
+        "kn": "ಅರ್ಥವಾಯಿತು! ಈಗ ನಿಮ್ಮ ಪ್ರಕರಣಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ದಾಖಲೆಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ — ವೇತನ ಚೀಟಿ, ಬ್ಯಾಂಕ್ ಸ್ಟೇಟ್‌ಮೆಂಟ್, ನೌಕರಿ ಪತ್ರ ಅಥವಾ ನೋಟಿಸ್‌ಗಳು. ಅನೇಕ ದಾಖಲೆಗಳನ್ನು ಸೇರಿಸಬಹುದು. ಮುಗಿದಾಗ 'Done' ಒತ್ತಿ, ಅಥವಾ 'Skip' ಒತ್ತಿ.",
+        "ml": "ശരി! ഇപ്പോൾ നിങ്ങളുടെ കേസുമായി ബന്ധപ്പെട്ട ആധാരങ്ങൾ അപ്‌ലോഡ് ചെയ്യുക — ശമ്പള സ്ലിപ്പുകൾ, ബാങ്ക് സ്റ്റേറ്റ്‌മെന്റുകൾ, ജോലി കത്ത് അല്ലെങ്കിൽ നോട്ടീസുകൾ. ഒന്നിലധികം ചേർക്കാം. കഴിഞ്ഞാൽ 'Done' അമർത്തുക, അല്ലെങ്കിൽ 'Skip' അമർത്തുക.",
+    },
+    "already_filed": {
+        "en": "Your complaint is already filed and being tracked.",
+        "hi": "आपकी शिकायत पहले ही दर्ज हो चुकी है और ट्रैक की जा रही है।",
+        "te": "మీ ఫిర్యాదు ఇప్పటికే దాఖలు చేయబడింది మరియు ట్రాక్ చేయబడుతోంది.",
+        "ta": "உங்கள் புகார் ஏற்கனவே தாக்கல் செய்யப்பட்டு கண்காணிக்கப்படுகிறது.",
+        "kn": "ನಿಮ್ಮ ದೂರನ್ನು ಈಗಾಗಲೇ ದಾಖಲಿಸಲಾಗಿದೆ ಮತ್ತು ಟ್ರ್ಯಾಕ್ ಮಾಡಲಾಗುತ್ತಿದೆ.",
+        "ml": "നിങ്ങളുടെ പരാതി ഇതിനോടകം ഫയൽ ചെയ്യപ്പെട്ടു, ട്രാക്ക് ചെയ്യപ്പെടുന്നു.",
+    },
+    "pdf_ready": {
+        "en": "Your complaint form is ready{extra}! Please review it carefully before submitting.",
+        "hi": "आपका शिकायत फ़ॉर्म तैयार है{extra}! कृपया सबमिट करने से पहले ध्यान से जांचें।",
+        "te": "మీ ఫిర్యాదు ఫారం సిద్ధంగా ఉంది{extra}! సమర్పించే ముందు జాగ్రత్తగా సమీక్షించండి.",
+        "ta": "உங்கள் புகார் படிவம் தயார்{extra}! சமர்ப்பிக்கும் முன் கவனமாக சரிபார்க்கவும்.",
+        "kn": "ನಿಮ್ಮ ದೂರು ಫಾರ್ಮ್ ಸಿದ್ಧವಾಗಿದೆ{extra}! ಸಲ್ಲಿಸುವ ಮೊದಲು ಎಚ್ಚರಿಕೆಯಿಂದ ಪರಿಶೀಲಿಸಿ.",
+        "ml": "നിങ്ങളുടെ പരാതി ഫോം തയ്യാറാണ്{extra}! സമർപ്പിക്കുന്നതിന് മുമ്പ് ശ്രദ്ധാപൂർവ്വം അവലോകനം ചെയ്യുക.",
+    },
+    "resume_sig": {
+        "en": "Welcome back! Please upload your signature to continue.",
+        "hi": "वापस स्वागत है! जारी रखने के लिए अपने हस्ताक्षर अपलोड करें।",
+        "te": "తిరిగి స్వాగతం! కొనసాగించడానికి మీ సంతకం అప్‌లోడ్ చేయండి.",
+        "ta": "மீண்டும் வரவேற்கிறோம்! தொடர உங்கள் கையொப்பத்தை பதிவேற்றவும்.",
+        "kn": "ಮತ್ತೆ ಸ್ವಾಗತ! ಮುಂದುವರಿಯಲು ನಿಮ್ಮ ಸಹಿ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
+        "ml": "തിരിച്ചു സ്വാഗതം! തുടരാൻ നിങ്ങളുടെ ഒപ്പ് അപ്‌ലോഡ് ചെയ്യുക.",
+    },
+    "resume_docs": {
+        "en": "Welcome back! Please upload your supporting documents, then tap Done.",
+        "hi": "वापस स्वागत है! कृपया अपने दस्तावेज़ अपलोड करें, फिर Done दबाएं।",
+        "te": "తిరిగి స్వాగతం! దయచేసి మీ మద్దతు పత్రాలు అప్‌లోడ్ చేయండి, తర్వాత Done నొక్కండి.",
+        "ta": "மீண்டும் வரவேற்கிறோம்! உங்கள் ஆதரவு ஆவணங்களை பதிவேற்றி Done அழுத்தவும்.",
+        "kn": "ಮತ್ತೆ ಸ್ವಾಗತ! ದಾಖಲೆಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ ನಂತರ Done ಒತ್ತಿ.",
+        "ml": "തിരിച്ചു സ്വാഗതം! മദ്ദതു രേഖകൾ അപ്‌ലോഡ് ചെയ്ത് Done അമർത്തുക.",
+    },
+    "resume_preview": {
+        "en": "Welcome back! Here is your complaint form. Please review and confirm to submit.",
+        "hi": "वापस स्वागत है! यह आपका शिकायत फ़ॉर्म है। कृपया समीक्षा करें और सबमिट करने के लिए पुष्टि करें।",
+        "te": "తిరిగి స్వాగతం! ఇది మీ ఫిర్యాదు ఫారం. దయచేసి సమీక్షించి సమర్పించడానికి నిర్ధారించండి.",
+        "ta": "மீண்டும் வரவேற்கிறோம்! இது உங்கள் புகார் படிவம். சமர்ப்பிக்க சரிபார்த்து உறுதிப்படுத்தவும்.",
+        "kn": "ಮತ್ತೆ ಸ್ವಾಗತ! ಇದು ನಿಮ್ಮ ದೂರು ಫಾರ್ಮ್. ಸಲ್ಲಿಸಲು ಪರಿಶೀಲಿಸಿ ದೃಢೀಕರಿಸಿ.",
+        "ml": "തിരിച്ചു സ്വാഗതം! ഇതാണ് നിങ്ങളുടെ പരാതി ഫോം. സമർപ്പിക്കാൻ അവലോകനം ചെയ്ത് സ്ഥിരീകരിക്കുക.",
+    },
+}
+
+
+def _t(key: str, lang_code: str, **fmt) -> str:
+    """Look up a fixed translated message. Falls back to English."""
+    msgs = _FIXED_MSGS.get(key, {})
+    text = msgs.get(lang_code) or msgs.get("en", "")
+    return text.format(**fmt) if fmt else text
+
 # ── Per-subcategory config ────────────────────────────────────────────────────
 # Each entry: title, authority, issue_description, fields [(key, label)], form_name
 
@@ -188,7 +256,11 @@ def _system_prompt(state: str, form_data: dict, user_name: str, language: str, c
 
     return f"""You are CivicFlow, a compassionate AI legal assistant helping Indian citizens file government complaints.
 
-CRITICAL: Respond ONLY in {language}. Do not use any other language.
+LANGUAGE RULES (follow strictly):
+1. Respond ONLY in {language}. Do not switch to any other language.
+2. The user may type in transliterated/romanised form — e.g. "naku salary ichhadam ledu" (Telugu in English letters) or "mujhe salary nahi mili" (Hindi in English letters). Understand such input as {language} and respond in {language} script.
+3. EXTRACTED: and ACTION: lines must ALWAYS be written in plain English/ASCII — never translate these tags or their keys.
+4. Values inside EXTRACTED must be in English or standard numerals (transliterate native-script answers to English before placing them in EXTRACTED). For example if the user gives their name in Telugu script, write the English equivalent in EXTRACTED.
 
 Complaint type: {cfg["title"]}
 Filing authority: {cfg["authority"]}
@@ -432,10 +504,10 @@ def _handle_rejected(cid, complaint: dict, form_data: dict, cfg: dict) -> dict:
         return _err("Could not regenerate the form. Please try again.")
 
 
-def _handle_submitted(complaint: dict) -> dict:
+def _handle_submitted(complaint: dict, lang_code: str = "en") -> dict:
     """SUBMITTED → no-op, return current filed status."""
     return {
-        "reply":          "Your complaint is already filed and being tracked.",
+        "reply":          _t("already_filed", lang_code),
         "action":         "status_update",
         "action_data":    {"status": "filed", "portal_ref_id": complaint.get("portal_ref_id", "")},
         "thinking_steps": ["✅ Complaint already filed"],
@@ -552,12 +624,9 @@ def _handle_llm_turn(
                     "updated_at":    datetime.now(timezone.utc),
                 }},
             )
+            lang_code = user.get("preferred_language", "en") or "en"
             return {
-                "reply": reply_text or (
-                    "Great! I\'ve collected all the information. "
-                    "Before generating your complaint form, I need your signature. "
-                    "Please upload a photo of your signature, or tap \'Skip\' to continue without one."
-                ),
+                "reply": reply_text or _t("sig_request", lang_code),
                 "action": "request_signature",
                 "action_data": {},
                 "thinking_steps": thinking_steps,
@@ -628,7 +697,7 @@ def _handle_llm_turn(
 
 # ── COLLECT_DOCS state handler ───────────────────────────────────────────────
 
-def _handle_collect_docs(cid, complaint: dict, form_data: dict, cfg: dict, user_message: str = "") -> dict:
+def _handle_collect_docs(cid, complaint: dict, form_data: dict, cfg: dict, user_message: str = "", lang_code: str = "en") -> dict:
     """
     COLLECT_DOCS state: two sub-stages driven by complaint.docs_stage.
       signature  → wait for signature upload or explicit skip, then advance
@@ -658,11 +727,7 @@ def _handle_collect_docs(cid, complaint: dict, form_data: dict, cfg: dict, user_
             {"$set": {"docs_stage": "documents", "updated_at": datetime.now(timezone.utc)}},
         )
         return {
-            "reply": (
-                "Got it! Now please upload any supporting documents relevant to your case — "
-                "such as pay slips, bank statements, employment letter, or written notices. "
-                "You can add multiple. Tap 'Done' when finished, or 'Skip' to proceed without documents."
-            ),
+            "reply": _t("doc_request", lang_code),
             "action": "request_documents",
             "action_data": {},
             "thinking_steps": ["✅ Signature step complete", "📎 Ready for supporting documents..."],
@@ -704,7 +769,7 @@ def _handle_collect_docs(cid, complaint: dict, form_data: dict, cfg: dict, user_
             }},
         )
         return {
-            "reply": f"Your complaint form is ready{extra_text}! Please review it carefully before submitting.",
+            "reply": _t("pdf_ready", lang_code, extra=extra_text),
             "action": "show_pdf",
             "action_data": {
                 "filename":   f"Your_{cfg['title'].replace(' ', '_')}_Complaint.pdf",
@@ -736,6 +801,7 @@ def run_agent(complaint_id: str, user_message: str, user: dict) -> dict:
     form_data   = dict(complaint.get("form_data") or {})
     state       = complaint.get("agent_state", "CHAT")
     history     = list(complaint.get("agent_history") or [])
+    lang_code   = user.get("preferred_language", "en") or "en"
     language    = _lang(user)
     subcategory = complaint.get("subcategory", "")
     category    = complaint.get("category", "")
@@ -750,9 +816,9 @@ def run_agent(complaint_id: str, user_message: str, user: dict) -> dict:
     if state == "REJECTED":
         return _handle_rejected(cid, complaint, form_data, cfg)
     if state == "SUBMITTED":
-        return _handle_submitted(complaint)
+        return _handle_submitted(complaint, lang_code)
     if state == "COLLECT_DOCS":
-        return _handle_collect_docs(cid, complaint, form_data, cfg, user_message)
+        return _handle_collect_docs(cid, complaint, form_data, cfg, user_message, lang_code)
 
     return _handle_llm_turn(
         cid, complaint_id, user_message,
@@ -787,6 +853,7 @@ def resume_agent(complaint_id: str, user: dict) -> dict:
     form_data   = dict(complaint.get("form_data") or {})
     subcategory = complaint.get("subcategory", "")
     cfg         = _config(subcategory)
+    lang_code   = (user.get("preferred_language") or "en")
 
     # Extract the last clean assistant reply from persisted history
     last_reply = None
@@ -814,19 +881,19 @@ def resume_agent(complaint_id: str, user: dict) -> dict:
         return result
 
     if state == "SUBMITTED":
-        return _with_history(_handle_submitted(complaint))
+        return _with_history(_handle_submitted(complaint, lang_code))
 
     if state == "COLLECT_DOCS":
         docs_stage = complaint.get("docs_stage", "signature")
         if docs_stage == "signature":
             return _with_history({
-                "reply":          last_reply or "Welcome back! Please upload your signature to continue.",
+                "reply":          last_reply or _t("resume_sig", lang_code),
                 "action":         "request_signature",
                 "action_data":    {},
                 "thinking_steps": [],
             })
         return _with_history({
-            "reply":          last_reply or "Welcome back! Please upload your supporting documents, then tap Done.",
+            "reply":          last_reply or _t("resume_docs", lang_code),
             "action":         "request_documents",
             "action_data":    {},
             "thinking_steps": [],
@@ -843,7 +910,7 @@ def resume_agent(complaint_id: str, user: dict) -> dict:
                 supporting_docs=supporting_docs,
             )
             return _with_history({
-                "reply":       last_reply or "Here is your complaint form. Please review and confirm to submit.",
+                "reply":       last_reply or _t("resume_preview", lang_code),
                 "action":      "show_pdf",
                 "action_data": {
                     "filename":   f"Your_{cfg['title'].replace(' ', '_')}_Complaint.pdf",
