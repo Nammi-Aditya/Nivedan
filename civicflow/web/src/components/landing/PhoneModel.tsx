@@ -122,8 +122,8 @@ export default function PhoneModel({ section, center }: Props) {
 
   // Slide animation
   const slideRef   = useRef(1);
-  const fromX      = useRef(TARGET_X[0]);
-  const toX        = useRef(TARGET_X[0]);
+  const fromX      = useRef(center ? 0 : TARGET_X[0]);
+  const toX        = useRef(center ? 0 : TARGET_X[0]);
   const swapped    = useRef(true);
   const pendingSec = useRef(0);
   const [visibleSection, setVisibleSection] = useState(0);

@@ -19,7 +19,17 @@
       "Bash(python scripts/search.py \"civic legal AI assistant government India mobile app\" --design-system -p \"Nivedan\" -f markdown)",
       "Bash(python scripts/search.py \"civic legal AI assistant government India trust\" --design-system -p \"Nivedan\" -f markdown)",
       "Bash(npx tailwindcss:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(gh repo:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(pip --version)",
+      "Bash(pip install:*)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(code-review-graph install:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "code-review-graph"
+  ],
+  "enableAllProjectMcpServers": true
 }
